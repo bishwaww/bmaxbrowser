@@ -3,12 +3,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { OverlayKind, Rect } from '@shared/types'
 import { CertView } from './CertView'
 import { FindView } from './FindView'
+import { MediaView } from './MediaView'
 import { MenuView } from './MenuView'
 import { PermissionView } from './PermissionView'
 import { ShieldsView } from './ShieldsView'
 import { SuggestView } from './SuggestView'
 
-const KINDS: OverlayKind[] = ['menu', 'cert', 'permission', 'find', 'suggest', 'shields']
+const KINDS: OverlayKind[] = ['menu', 'cert', 'permission', 'find', 'suggest', 'shields', 'media']
 
 function kindFromUrl(): OverlayKind {
   const k = new URLSearchParams(location.search).get('kind') as OverlayKind | null
@@ -58,6 +59,7 @@ export function App() {
         {kind === 'find' && <FindView data={payload.data as { text: string }} seq={payload.seq} />}
         {kind === 'suggest' && <SuggestView data={payload.data as never} />}
         {kind === 'shields' && <ShieldsView />}
+        {kind === 'media' && <MediaView />}
       </div>
     </div>
   )

@@ -5,6 +5,7 @@ import type { Settings } from '@shared/settings'
 import type { OverlayKind, SuggestionItem, TabInfo, WindowState } from '@shared/types'
 import {
   IconBack,
+  IconDownload,
   IconShieldCheck,
   IconCircuit,
   IconFlame,
@@ -277,6 +278,9 @@ export function Toolbar({
             onKeyDown={onKeyDown}
           />
         </div>
+        {tab && /^https?:\/\//i.test(tab.url) && tab.media.videos + tab.media.audios + tab.media.sniffed + (tab.media.images >= 3 ? 1 : 0) > 0 && (
+          <DownloadButton toggleOverlay={toggleOverlay} count={tab.media.videos + tab.media.audios + tab.media.sniffed} />
+        )}
         {state.zoomPercent !== 100 && (
           <button
             className="mr-2 rounded-full px-2 text-xs"
@@ -319,6 +323,31 @@ export function Toolbar({
         />
       )}
     </div>
+  )
+}
+
+function DownloadButton({
+  toggleOverlay,
+  count
+}: {
+  toggleOverlay: (kind: OverlayKind, rect: { x: number; y: number; width: number; height: number }, data?: unknown) => void
+  count: number
+}) {
+  const ref = useRef<HTMLButtonElement>(null)
+  return (
+    <button
+      ref={ref}
+      className="icon-btn mr-1"
+      style={{ width: 28, height: 28 }}
+      title={count > 0 ? 'Download media from this page' : 'Save images from this page'}
+      aria-label="Download media from this page"
+      onClick={() => {
+        const r = ref.current?.getBoundingClientRect()
+        if (r) toggleOverlay('media', { x: Math.max(8, r.right - 408), y: r.bottom + 8, width: 408, height: 420 }, {})
+      }}
+    >
+      <IconDownload size={16} />
+    </button>
   )
 }
 

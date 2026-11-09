@@ -1,5 +1,5 @@
 export type SecurityLevel = 'internal' | 'secure' | 'insecure' | 'error' | 'file' | 'none'
-export type OverlayKind = 'menu' | 'cert' | 'permission' | 'find' | 'suggest' | 'shields'
+export type OverlayKind = 'menu' | 'cert' | 'permission' | 'find' | 'suggest' | 'shields' | 'media'
 export type Platform = 'win32' | 'darwin' | 'linux'
 
 export interface TabInfo {
@@ -21,6 +21,8 @@ export interface TabInfo {
   bookmarked: boolean
   /** Shields state for this tab: site toggle and number of items blocked on the current page. */
   shields: { enabled: boolean; blocked: number }
+  /** Media found on the page (drives the address-bar download button). */
+  media: { videos: number; audios: number; images: number; sniffed: number }
 }
 
 export interface WindowState {

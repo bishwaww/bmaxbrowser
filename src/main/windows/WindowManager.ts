@@ -60,6 +60,7 @@ export class WindowManager {
     for (const w of old) w.base.close()
     await services.sessions.burnAll()
     services.permissions.reset()
+    services.downloads.reset()
     services.vault.lock()
     this.zoom.clear()
     this.clearClosed()

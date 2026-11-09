@@ -9,6 +9,7 @@ import { configureSpellcheck } from '../privacy/spellcheck'
 import type { CertCache } from '../net/cert-cache'
 import type { RequestPipeline } from '../net/RequestPipeline'
 import type { PermissionManager } from '../permissions/PermissionManager'
+import { services } from '../services'
 import type { SettingsStore } from '../settings/SettingsStore'
 
 // Ghostery's cosmetic-filtering preload (sandbox-safe: it only needs `electron`).
@@ -91,6 +92,7 @@ export class SessionManager {
     // Cosmetic filtering + scriptlet injection (asks main for rules; main decides per site whether Shields is on).
     ses.registerPreloadScript({ type: 'frame', filePath: SHIELDS_PRELOAD })
     configureSpellcheck(ses)
+    ses.on('will-download', (_e, item, wc) => services.downloads.onWillDownload(item, wc))
     this.entries.set(partition, {
       ses,
       tor,

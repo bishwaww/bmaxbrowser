@@ -9,3 +9,20 @@ Format: `sha256  file  source  verification`
   GPG: good signature on the file and on sha256sums-signed-build.txt (primary key EF6E286DDA85EA2A4BA7DE684E2C6E8793298290, signing subkey 022DA248432D2A0E0F54E65E316C1FACD62D07D9); SHA-256 matches the signed list.
 1607d98f5d13859077b1b349c55beba76b09acc788f0431fd824d11966fb1074  tor/tor.exe   (extracted from the archive above)
 ```
+
+## yt-dlp (win32-x64), release 2026.10.26
+```
+f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d  yt-dlp/win32-x64/yt-dlp.exe
+  https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe
+  GPG: good signature on SHA2-256SUMS (key AC0CBBE6848D6A873464AF4E57CF65933B5A7581, "yt-dlp signing key", from the project's public.key;
+  fingerprint also served by keys.openpgp.org); SHA-256 matches the signed list.
+```
+
+## ffmpeg 9.0.2 full build (win32-x64), gyan.dev — copied from the machine's winget install, NOT re-downloaded
+```
+589e50b766d251afdf181dd664d40bd94407e200b019989fd7468c7d118a28d0  ffmpeg/win32-x64/ffmpeg.exe
+02264dfa4f56baaa31e443ece8aa16d397f6b008200e7fd184d22b9009e75fd3  ffmpeg/win32-x64/ffprobe.exe
+  Source: Gyan.FFmpeg (winget) ffmpeg-9.0.2-full_build — the Windows builds linked from ffmpeg.org. GPLv3 build (see its LICENSE).
+  Provenance rests on winget's manifest hash check of the original archive; to re-verify, compare with the SHA-256 published next to
+  https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-9.0.2-full_build.zip.
+```

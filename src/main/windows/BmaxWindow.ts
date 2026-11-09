@@ -465,9 +465,12 @@ export class BmaxWindow {
       case 'bookmarkPage':
         this.toggleBookmark()
         return
-      case 'downloads':
-        // Implemented in Phase 4 (Downloads manager).
+      case 'downloads': {
+        const existing = this.tabs.find((t) => internalPageOf(t.wc.getURL()) === 'downloads')
+        if (existing) this.activate(existing)
+        else this.openTab(internalUrl('downloads'))
         return
+      }
       default:
         if (typeof cmd === 'string' && cmd.startsWith('selectTab:')) {
           const n = Number(cmd.split(':')[1])

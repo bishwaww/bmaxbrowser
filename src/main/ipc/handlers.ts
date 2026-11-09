@@ -2,6 +2,7 @@ import { dialog, Menu, nativeTheme } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { parseBookmarksHtml } from '@shared/bookmarks-import'
 import { internalUrl } from '@shared/internal'
+import { ffmpegStatus, ytdlpStatus } from '../downloads/tools'
 import { allowHttp } from '../net/privacy-handlers'
 import { resolveOmnibox } from '@shared/omnibox'
 import { services } from '../services'
@@ -91,7 +92,7 @@ export function createHandlers(): Handlers {
     },
     'overlay.show': (a, { window }) => {
       // Showing one transient overlay closes the others.
-      if (a.kind === 'menu' || a.kind === 'cert' || a.kind === 'shields') window.overlays.hideTransient(a.kind)
+      if (a.kind === 'menu' || a.kind === 'cert' || a.kind === 'shields' || a.kind === 'media') window.overlays.hideTransient(a.kind)
       window.overlays.show(a.kind, a.rect, a.data)
     },
     'overlay.hide': (a, { window }) => {
@@ -191,6 +192,44 @@ export function createHandlers(): Handlers {
     'shields.refresh': () => {
       void services.shields.refresh()
     },
+    'media.info': (_a, { window }) => services.media.panelInfo(window.activeTab),
+    'media.probe': (a, { window }) => {
+      const tab = window.activeTab
+      if (!tab) throw new Error('No active tab')
+      return services.downloads.probe(tab, a.url)
+    },
+    'media.start': async (a, { window }) => {
+      const tab = window.activeTab
+      if (!tab) throw new Error('No active tab')
+      if (a.kind === 'video') {
+        if (!a.options) throw new Error('Missing options')
+        return { ids: await services.downloads.startVideo(tab, a.url, a.title ?? '', a.options, tab.url) }
+      }
+      if (a.kind === 'thumbnail') return { ids: await services.downloads.startThumbnail(tab, a.url, a.title ?? '') }
+      // 'sniffed': only URLs the network sniffer actually saw on this page
+      const found = services.media.sniffedList(tab.wc.id).find((m) => m.url === a.url)
+      if (!found) throw new Error('That media was not found on this page.')
+      if (found.kind === 'hls' || found.kind === 'dash') return { ids: await services.downloads.startStream(tab, a.url, a.title ?? '', tab.url) }
+      tab.wc.downloadURL(a.url)
+      return { ids: [] }
+    },
+    'media.images': async (_a, { window }) => (window.activeTab ? services.media.imageSummary(window.activeTab) : { total: 0, byMinWidth: {} }),
+    'media.saveImages': async (a, { window }) => {
+      const tab = window.activeTab
+      if (!tab) return { id: null }
+      const all = await services.media.collectImages(tab)
+      const picked = all.filter((i) => i.width >= a.minWidth)
+      return { id: await services.downloads.saveImages(tab, picked) }
+    },
+    'downloads.list': () => services.downloads.list(),
+    'downloads.action': (a) => services.downloads.action(a.id, a.action),
+    'downloads.clear': () => services.downloads.clearFinished(),
+    'downloads.chooseFolder': async (_a, { window }) => {
+      const res = await dialog.showOpenDialog(window.base, { title: 'Choose download folder', properties: ['openDirectory', 'createDirectory'] })
+      return res.canceled ? null : (res.filePaths[0] ?? null)
+    },
+    'downloads.tools': async () => ({ ytdlp: await ytdlpStatus(), ffmpeg: await ffmpegStatus() }),
+    'downloads.updateYtdlp': (_a, { window }) => services.downloads.updateYtdlp(window.activeTab),
     'page.navigate': (a, { tab }) => {
       if (!tab) return
       tab.loadUrl(resolveOmnibox(a.input, services.settings.get().searchEngine).url)

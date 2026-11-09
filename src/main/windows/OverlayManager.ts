@@ -19,9 +19,9 @@ interface Entry {
 }
 
 /** Overlays that close when the user clicks elsewhere. 'find' and 'permission' stay until dismissed. */
-const TRANSIENT: OverlayKind[] = ['menu', 'cert', 'suggest', 'shields']
+const TRANSIENT: OverlayKind[] = ['menu', 'cert', 'suggest', 'shields', 'media']
 /** Overlays that take keyboard focus when shown (suggest must NOT: focus stays in the omnibox). */
-const FOCUSING: OverlayKind[] = ['menu', 'cert', 'find', 'shields']
+const FOCUSING: OverlayKind[] = ['menu', 'cert', 'find', 'shields', 'media']
 
 /**
  * Popups, menus and the find bar are separate transparent WebContentsViews stacked above the page view.

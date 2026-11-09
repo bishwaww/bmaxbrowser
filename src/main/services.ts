@@ -4,6 +4,8 @@ import type { PermissionManager } from './permissions/PermissionManager'
 import type { SessionManager } from './sessions/SessionManager'
 import type { SettingsStore } from './settings/SettingsStore'
 import type { StatsStore } from './settings/StatsStore'
+import type { DownloadManager } from './downloads/DownloadManager'
+import type { MediaTracker } from './downloads/MediaTracker'
 import type { ShieldsManager } from './shields/ShieldsManager'
 import type { TorManager } from './tor/TorManager'
 import type { Vault } from './vault/Vault'
@@ -20,6 +22,8 @@ export interface Services {
   windows: WindowManager
   tor: TorManager
   shields: ShieldsManager
+  downloads: DownloadManager
+  media: MediaTracker
   vault: Vault
 }
 

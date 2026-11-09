@@ -3,6 +3,7 @@ import { settingsPatchSchema } from './settings'
 import type { Settings, PrivacyStats } from './settings'
 import type { CertInfo, OverlayKind, Rect, TorState, WindowState } from './types'
 import type { Bookmark, PasswordEntry, VaultStatus } from './vault'
+import type { DownloadJob, ImageSummary, MediaPanelInfo, ProbeResult, ToolStatus } from './downloads'
 import type { ShieldsListsInfo, ShieldsPanelInfo } from './shields'
 
 export interface VaultResult {
@@ -15,7 +16,7 @@ export { IPC_CMD, IPC_PUSH } from './channels'
 const id = z.number().int().nonnegative()
 const url = z.string().max(8192)
 const rect = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
-const kind = z.enum(['menu', 'cert', 'permission', 'find', 'suggest', 'shields'])
+const kind = z.enum(['menu', 'cert', 'permission', 'find', 'suggest', 'shields', 'media'])
 const empty = z.object({}).strict().optional()
 
 /** zod schema per command. Every IPC message is parsed against these in the main process. */
@@ -54,7 +55,8 @@ export const commandSchemas = {
       'zoomReset',
       'newTorWindow',
       'burn',
-      'bookmarkPage'
+      'bookmarkPage',
+      'downloads'
     ])
   }),
   'overlay.show': z.object({ kind, rect, data: z.unknown().optional() }),
@@ -72,6 +74,33 @@ export const commandSchemas = {
   'stats.get': empty,
   'theme.get': empty,
   'warning.proceedHttp': z.object({ url }),
+  'media.info': empty,
+  'media.probe': z.object({ url: z.string().max(4096) }),
+  'media.start': z.object({
+    kind: z.enum(['video', 'sniffed', 'thumbnail']),
+    url: z.string().max(4096),
+    title: z.string().max(300).optional(),
+    options: z
+      .object({
+        mode: z.enum(['video', 'audio']),
+        height: z.number().int().min(100).max(8640).nullable(),
+        container: z.enum(['mp4', 'webm']),
+        audioFormat: z.enum(['mp3', 'm4a']),
+        subtitles: z.boolean(),
+        subLangs: z.array(z.string().max(32)).max(20),
+        thumbnail: z.boolean(),
+        playlist: z.boolean()
+      })
+      .optional()
+  }),
+  'media.images': z.object({ minWidth: z.number().int().min(0).max(20000) }),
+  'media.saveImages': z.object({ minWidth: z.number().int().min(0).max(20000) }),
+  'downloads.list': empty,
+  'downloads.action': z.object({ id: z.string().max(64), action: z.enum(['pause', 'resume', 'cancel', 'remove', 'open', 'show', 'retry']) }),
+  'downloads.clear': empty,
+  'downloads.chooseFolder': empty,
+  'downloads.tools': empty,
+  'downloads.updateYtdlp': empty,
   'shields.get': empty,
   'shields.setSite': z.object({ enabled: z.boolean() }),
   'shields.pick': empty,
@@ -110,6 +139,15 @@ export interface CommandResults {
   'stats.get': PrivacyStats
   'theme.get': 'light' | 'dark' | 'tor'
   'tor.status': TorState
+  'media.info': MediaPanelInfo
+  'media.probe': ProbeResult
+  'media.start': { ids: string[] }
+  'media.images': ImageSummary
+  'media.saveImages': { id: string | null }
+  'downloads.list': DownloadJob[]
+  'downloads.chooseFolder': string | null
+  'downloads.tools': { ytdlp: ToolStatus; ffmpeg: ToolStatus }
+  'downloads.updateYtdlp': { ok: boolean; message: string }
   'shields.get': ShieldsPanelInfo
   'shields.pick': { added: string | null }
   'shields.rules.get': string
@@ -168,6 +206,17 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'stats.get': P,
   'theme.get': ['chrome', 'overlay', 'page'],
   'warning.proceedHttp': P,
+  'media.info': ['overlay'],
+  'media.probe': ['overlay'],
+  'media.start': ['overlay'],
+  'media.images': ['overlay'],
+  'media.saveImages': ['overlay'],
+  'downloads.list': ['page', 'chrome'],
+  'downloads.action': P,
+  'downloads.clear': P,
+  'downloads.chooseFolder': P,
+  'downloads.tools': P,
+  'downloads.updateYtdlp': P,
   'shields.get': ['chrome', 'overlay'],
   'shields.setSite': ['overlay'],
   'shields.pick': ['overlay'],
@@ -205,3 +254,4 @@ export type PushMessage =
   | { type: 'settings'; settings: Settings }
   | { type: 'theme'; theme: 'light' | 'dark' | 'tor' }
   | { type: 'tor-status'; state: TorState }
+  | { type: 'downloads'; jobs: DownloadJob[] }

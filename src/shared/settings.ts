@@ -45,6 +45,14 @@ const shieldsSchema = z.object({
   disabledSites: z.array(z.string().max(253)).max(500)
 })
 
+const downloadsSchema = z.object({
+  /** Absolute folder; empty = the system Downloads folder. */
+  folder: z.string().max(1024),
+  askWhere: z.boolean(),
+  autoUpdateYtdlp: z.boolean(),
+  maxConcurrent: z.number().int().min(1).max(8)
+})
+
 export const settingsSchema = z.object({
   searchEngine: z.enum(SEARCH_ENGINES.map((e) => e.id) as [string, ...string[]]),
   theme: z.enum(['system', 'light', 'dark']),
@@ -53,6 +61,7 @@ export const settingsSchema = z.object({
   tiles: z.array(tileSchema).max(24),
   privacy: privacySchema,
   shields: shieldsSchema,
+  downloads: downloadsSchema,
   proxy: proxySchema,
   permissions: z.object({
     /** What to do when a site asks and there is no stored decision. */
@@ -95,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
     youtube: true,
     disabledSites: []
   },
+  downloads: { folder: '', askWhere: false, autoUpdateYtdlp: true, maxConcurrent: 3 },
   proxy: { enabled: false, scheme: 'socks5', host: '127.0.0.1', port: 1080 },
   permissions: { defaultAction: 'ask', persist: false }
 }

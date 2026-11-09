@@ -5,9 +5,10 @@ import type { DohProviderId } from '@shared/privacy'
 import { SEARCH_ENGINES } from '@shared/search-engines'
 import type { Settings, SettingsPatch } from '@shared/settings'
 import { useSettings } from '../shared-ui/hooks'
+import { DownloadsSection } from './DownloadsSection'
 import { ShieldsSection } from './ShieldsSection'
 
-const SECTIONS = ['Appearance', 'Search', 'Shields', 'Privacy & Security', 'Network', 'Tor', 'About'] as const
+const SECTIONS = ['Appearance', 'Search', 'Shields', 'Privacy & Security', 'Downloads', 'Network', 'Tor', 'About'] as const
 type Section = (typeof SECTIONS)[number]
 
 const inputStyle = { background: 'var(--field)', border: '1px solid var(--border)', userSelect: 'text' as const }
@@ -329,6 +330,7 @@ export function App() {
         )}
 
         {section === 'Shields' && <ShieldsSection settings={settings} update={update} />}
+        {section === 'Downloads' && <DownloadsSection settings={settings} update={update} />}
         {section === 'Network' && <NetworkSection settings={settings} update={update} />}
         {section === 'Tor' && <TorSection />}
 

@@ -3,6 +3,7 @@ import { IPC_PUSH } from '@shared/ipc'
 import type { PushMessage } from '@shared/ipc'
 import { applyFlags } from './app/flags'
 import { internalUrl } from '@shared/internal'
+import type { DownloadJob } from '@shared/downloads'
 import type { Settings } from '@shared/settings'
 import type { TorState } from '@shared/types'
 import { internalPageOf, isTrustedInternalUrl, registerInternalScheme } from './app/internal-pages'
@@ -15,6 +16,9 @@ import { registerPrivacyHandlers } from './net/privacy-handlers'
 import { PermissionManager } from './permissions/PermissionManager'
 import { registerWebConfig } from './privacy/web-config'
 import { TorManager } from './tor/TorManager'
+import { DownloadManager } from './downloads/DownloadManager'
+import { ensureYtdlp, readToolMeta } from './downloads/tools'
+import { MediaTracker } from './downloads/MediaTracker'
 import { ShieldsManager } from './shields/ShieldsManager'
 import { Vault } from './vault/Vault'
 import { initSpellcheck } from './privacy/spellcheck'
@@ -61,6 +65,7 @@ app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   services.settings?.flush()
   services.stats?.flush()
+  services.downloads?.reset()
   services.tor?.shutdown()
 })
 
@@ -79,6 +84,8 @@ void app.whenReady().then(async () => {
   services.permissions = new PermissionManager(services.settings)
   services.permissions.init()
   services.shields = new ShieldsManager()
+  services.downloads = new DownloadManager()
+  services.media = new MediaTracker()
   registerPrivacyHandlers(services.pipeline)
   registerWebConfig()
   services.tor = new TorManager()
@@ -131,6 +138,13 @@ void app.whenReady().then(async () => {
       for (const t of w.tabs) if (!t.isDestroyed && isTrustedInternalUrl(t.wc.getURL())) t.wc.send(IPC_PUSH, msg)
     }
   }
+  services.downloads.on('change', (jobs: DownloadJob[]) => {
+    for (const w of services.windows.all()) {
+      for (const t of w.tabs) {
+        if (!t.isDestroyed && internalPageOf(t.wc.getURL()) === 'downloads') t.wc.send(IPC_PUSH, { type: 'downloads', jobs })
+      }
+    }
+  })
   services.vault.onChange = () => {
     for (const w of services.windows.all()) w.notify()
   }
@@ -162,4 +176,14 @@ void app.whenReady().then(async () => {
 
   services.windows.create({ url: urlFromArgv(process.argv) })
   services.shields.init()
+  // Keep yt-dlp current (sites change often): one check per day, shortly after startup. Switchable in Settings → Downloads.
+  if (process.env['BMAX_TEST'] !== '1') {
+    // Warm up yt-dlp (copy to userData, first-run unpacking) so the first download starts promptly.
+    setTimeout(() => void ensureYtdlp(), 20_000).unref()
+    setTimeout(() => {
+      const d = services.settings.get().downloads
+      const last = readToolMeta().ytdlpCheckedAt ?? 0
+      if (d.autoUpdateYtdlp && Date.now() - last > 24 * 3600 * 1000) void services.downloads.updateYtdlp(null)
+    }, 45_000).unref()
+  }
 })

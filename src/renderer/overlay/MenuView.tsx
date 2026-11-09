@@ -85,6 +85,7 @@ export function MenuView() {
           void window.bmax.cmd('overlay.hide', { kind: 'menu' })
         }}
       />
+      <Row label="Downloads" hint={`${mod}J`} onClick={act('downloads')} />
       <Row label="Burn all browsing data" hint={`${mod}Shift+Del`} onClick={act('burn')} />
       <Row label="Settings" hint={`${mod},`} onClick={act('settings')} />
     </div>

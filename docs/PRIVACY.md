@@ -58,3 +58,18 @@ Browser users (use the official Tor Browser for that).
   Ghostery repository) and, only if you enable regional lists, easylist-downloads.adblockplus.org. Lists and the compiled engine are cached in
   `userData/shields/` (filter data only). Your custom rules are stored in `userData/shields/custom-rules.txt`.
 - Pop-ups, automatic redirects and notification prompts are decided locally from whether you recently clicked or typed.
+
+## Downloads
+- The downloads list lives in memory only: it disappears when BMAX closes or you press Burn, and nothing about your downloads is
+  stored. The files you download stay in your download folder (Settings → Downloads). Partial files are kept in a temporary
+  folder and deleted when a download finishes or is cancelled.
+- Video/audio downloads run the bundled **yt-dlp** and **ffmpeg** as separate programs (arguments are passed as a list, never through a
+  shell). yt-dlp contacts the site you are downloading from (and, for some sites, that site's own helper servers) in the same way
+  your browser would; it uses no cookies, no cache and ignores any yt-dlp config file. Name lookups made by yt-dlp use the system
+  resolver, not BMAX's DNS-over-HTTPS setting (unless you use a proxy or Tor, which resolve names remotely).
+- In a **Tor window** downloads go through Tor (`socks5h`, remote DNS) and are refused until Tor is connected. With a proxy set in
+  Settings → Network, downloads use that proxy too.
+- **yt-dlp updates itself** (`yt-dlp -U`, about once a day, switchable in Settings → Downloads): a request to GitHub; yt-dlp verifies
+  the update. A working copy of yt-dlp lives in the app data folder (`bin/`) so it can be updated.
+- Media detection looks at the page in memory (number of `<video>`/`<audio>`/images and media files seen on the network); nothing
+  is recorded.

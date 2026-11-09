@@ -62,6 +62,10 @@ export class TorManager extends EventEmitter {
   private dir = ''
   private startPromise: Promise<void> | null = null
 
+  /** The SOCKS port Tor listens on (0 until reserved). */
+  socksPort(): number {
+    return this.socks
+  }
   isReady(): boolean {
     return this.current.status === 'ready'
   }

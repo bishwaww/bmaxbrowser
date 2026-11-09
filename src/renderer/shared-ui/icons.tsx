@@ -157,3 +157,24 @@ export const IconShieldCheck = (p: P) => (
     <path d="M8.5 12l2.5 2.5 4.5-5" />
   </Svg>
 )
+export const IconDownload = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 3v12M7 10l5 5 5-5" />
+    <path d="M4 19h16" />
+  </Svg>
+)
+export const IconPause = (p: P) => (
+  <Svg {...p}>
+    <path d="M8 5v14M16 5v14" />
+  </Svg>
+)
+export const IconPlay = (p: P) => (
+  <Svg {...p}>
+    <path d="M7 4l13 8-13 8V4z" />
+  </Svg>
+)
+export const IconFolder = (p: P) => (
+  <Svg {...p}>
+    <path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6z" />
+  </Svg>
+)

@@ -45,7 +45,8 @@ export default defineConfig({
           error: resolve(__dirname, 'src/renderer/error/index.html'),
           warning: resolve(__dirname, 'src/renderer/warning/index.html'),
           tor: resolve(__dirname, 'src/renderer/tor/index.html'),
-          bookmarks: resolve(__dirname, 'src/renderer/bookmarks/index.html')
+          bookmarks: resolve(__dirname, 'src/renderer/bookmarks/index.html'),
+          downloads: resolve(__dirname, 'src/renderer/downloads/index.html')
         }
       }
     }

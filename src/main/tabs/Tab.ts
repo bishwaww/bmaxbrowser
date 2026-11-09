@@ -171,7 +171,8 @@ export class Tab {
       isNewTab: internalPageOf(this.wc.getURL()) === 'newtab',
       container: services.sessions.containerLabel(this.partition),
       bookmarked: services.vault.hasBookmark(url),
-      shields: services.shields.tabSummary(this.wc.id, url)
+      shields: services.shields.tabSummary(this.wc.id, url),
+      media: services.media.summary(this.wc.id)
     }
   }
 
@@ -247,6 +248,7 @@ export class Tab {
     wc.on('did-start-navigation', (details) => {
       if (details.isMainFrame && !details.isSameDocument) {
         services.shields.resetTab(wc.id)
+        services.media.resetTab(wc.id)
         services.permissions.cancelForWebContents(wc.id)
         this.window.overlays.hideTransient()
         this.window.overlays.hide('find')
@@ -261,7 +263,11 @@ export class Tab {
       this.applyStoredZoom()
       notify()
     })
-    wc.on('did-navigate-in-page', notify)
+    wc.on('did-navigate-in-page', () => {
+      services.media.scheduleScan(this)
+      notify()
+    })
+    wc.on('did-finish-load', () => services.media.scheduleScan(this))
     wc.on('did-fail-load', (_e, code, desc, validatedUrl, isMainFrame) => {
       if (!isMainFrame || code === -3 || isInternalUrl(toLogicalUrl(validatedUrl))) return
       this.loading = false
@@ -363,6 +369,7 @@ export class Tab {
     }
     services.permissions.cancelForWebContents(wc.id)
     services.shields.forgetTab(wc.id)
+    services.media.forgetTab(wc.id)
     registry.unregister(wc.id)
     wc.close({ waitForBeforeUnload: false })
     services.sessions.release(this.partition)
