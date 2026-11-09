@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+release/
+test-results/
+playwright-report/
+*.log
+.claude/settings.local.json
+resources/bin/*/
+!resources/bin/CHECKSUMS.md
