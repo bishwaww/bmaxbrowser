@@ -82,6 +82,18 @@ export class DownloadManager extends EventEmitter {
   private order: string[] = []
   private emitTimer: NodeJS.Timeout | null = null
 
+  constructor() {
+    super()
+    // Leftover partial-download folders from a previous run that was killed (single-instance app: none can be in use).
+    try {
+      for (const name of readdirSync(tmpdir())) {
+        if (name.startsWith('bmax-dljob-')) rmSync(join(tmpdir(), name), { recursive: true, force: true })
+      }
+    } catch {
+      /* best effort */
+    }
+  }
+
   // ------------------------------------------------------------------ public API
 
   list(): DownloadJob[] {
@@ -231,7 +243,7 @@ export class DownloadManager extends EventEmitter {
   private queueYtdlp(tab: Tab, kind: DownloadJob['kind'], title: string, url: string, build: (out: string, tmp: string) => string[]): string {
     if (!isHttpUrl(url)) throw new Error('Only web addresses can be downloaded.')
     const job = this.newJob(kind, title, url, tab.window.tor)
-    const tmpDir = join(tmpdir(), `bmax-dl-${job.id}`)
+    const tmpDir = join(tmpdir(), `bmax-dljob-${job.id}`)
     const rt: Runtime = {
       job,
       kind: 'ytdlp',
@@ -671,6 +683,14 @@ export class DownloadManager extends EventEmitter {
       rt.item?.cancel()
       rt.abort?.abort()
       this.cleanupTmp(rt)
+      // A quit may follow immediately and unref'd timers die with the process, so also try right now.
+      if (rt.tmpDir) {
+        try {
+          rmSync(rt.tmpDir, { recursive: true, force: true })
+        } catch {
+          /* locked by a dying process: swept at the next start */
+        }
+      }
     }
     this.jobs.clear()
     this.order = []
