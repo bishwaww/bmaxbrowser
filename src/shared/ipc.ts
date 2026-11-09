@@ -3,6 +3,7 @@ import { settingsPatchSchema } from './settings'
 import type { Settings, PrivacyStats } from './settings'
 import type { CertInfo, OverlayKind, Rect, TorState, WindowState } from './types'
 import type { Bookmark, PasswordEntry, VaultStatus } from './vault'
+import type { ShieldsListsInfo, ShieldsPanelInfo } from './shields'
 
 export interface VaultResult {
   ok: boolean
@@ -14,7 +15,7 @@ export { IPC_CMD, IPC_PUSH } from './channels'
 const id = z.number().int().nonnegative()
 const url = z.string().max(8192)
 const rect = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
-const kind = z.enum(['menu', 'cert', 'permission', 'find', 'suggest'])
+const kind = z.enum(['menu', 'cert', 'permission', 'find', 'suggest', 'shields'])
 const empty = z.object({}).strict().optional()
 
 /** zod schema per command. Every IPC message is parsed against these in the main process. */
@@ -71,6 +72,14 @@ export const commandSchemas = {
   'stats.get': empty,
   'theme.get': empty,
   'warning.proceedHttp': z.object({ url }),
+  'shields.get': empty,
+  'shields.setSite': z.object({ enabled: z.boolean() }),
+  'shields.pick': empty,
+  'shields.allowNavigation': z.object({ url }),
+  'shields.rules.get': empty,
+  'shields.rules.set': z.object({ text: z.string().max(200_000) }),
+  'shields.lists': empty,
+  'shields.refresh': empty,
   'vault.status': empty,
   'vault.create': z.object({ password: z.string().min(1).max(256) }),
   'vault.unlock': z.object({ password: z.string().min(1).max(256) }),
@@ -101,6 +110,11 @@ export interface CommandResults {
   'stats.get': PrivacyStats
   'theme.get': 'light' | 'dark' | 'tor'
   'tor.status': TorState
+  'shields.get': ShieldsPanelInfo
+  'shields.pick': { added: string | null }
+  'shields.rules.get': string
+  'shields.rules.set': { ok: boolean; lines: number; error?: string }
+  'shields.lists': ShieldsListsInfo
   'vault.status': VaultStatus
   'vault.create': VaultResult
   'vault.unlock': VaultResult
@@ -154,6 +168,14 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'stats.get': P,
   'theme.get': ['chrome', 'overlay', 'page'],
   'warning.proceedHttp': P,
+  'shields.get': ['chrome', 'overlay'],
+  'shields.setSite': ['overlay'],
+  'shields.pick': ['overlay'],
+  'shields.allowNavigation': ['overlay'],
+  'shields.rules.get': P,
+  'shields.rules.set': P,
+  'shields.lists': P,
+  'shields.refresh': P,
   'vault.status': ['chrome', 'page'],
   'vault.create': P,
   'vault.unlock': P,

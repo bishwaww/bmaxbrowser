@@ -27,6 +27,9 @@ export class Tab {
   progress = 0
   favicon: string | null = null
   private pendingUrl: string | null = null
+  /** Timestamp of the last real user input in this tab (used to tell user-initiated pop-ups/redirects from scripted ones). */
+  lastGestureAt = 0
+  pageLoadedAt = 0
   private lastFaviconUrl = ''
   private destroyed = false
 
@@ -167,7 +170,8 @@ export class Tab {
       security: this.security,
       isNewTab: internalPageOf(this.wc.getURL()) === 'newtab',
       container: services.sessions.containerLabel(this.partition),
-      bookmarked: services.vault.hasBookmark(url)
+      bookmarked: services.vault.hasBookmark(url),
+      shields: services.shields.tabSummary(this.wc.id, url)
     }
   }
 
@@ -242,12 +246,14 @@ export class Tab {
     })
     wc.on('did-start-navigation', (details) => {
       if (details.isMainFrame && !details.isSameDocument) {
+        services.shields.resetTab(wc.id)
         services.permissions.cancelForWebContents(wc.id)
         this.window.overlays.hideTransient()
         this.window.overlays.hide('find')
       }
     })
     wc.on('did-navigate', () => {
+      this.pageLoadedAt = Date.now()
       upgradedNavigations.delete(wc.id)
       this.pendingUrl = null
       this.lastFaviconUrl = ''
@@ -282,6 +288,10 @@ export class Tab {
       notify()
     })
     wc.on('focus', () => this.window.overlays.hideTransient())
+    wc.on('input-event', (_e, input) => {
+      const t = input.type
+      if (t === 'mouseDown' || t === 'mouseUp' || t === 'rawKeyDown' || t === 'keyDown' || t === 'touchStart' || t === 'touchEnd') this.lastGestureAt = Date.now()
+    })
     wc.on('zoom-changed', (_e, dir) => this.zoom(dir))
     wc.on('found-in-page', (_e, result) => this.window.onFound(this, result.activeMatchOrdinal, result.matches))
     wc.on('enter-html-full-screen', () => this.window.setHtmlFullscreen(true))
@@ -310,6 +320,11 @@ export class Tab {
       // Web pages may not navigate to (or frame) internal pages; internal pages may not navigate away by themselves.
       if ((toInternal && (!fromInternal || !event.isMainFrame)) || (fromInternal && !toInternal)) {
         event.preventDefault()
+        return
+      }
+      // Scripted cross-site top-level navigation without a user gesture (auto-redirect / pop-under trick).
+      if (event.isMainFrame && !event.isSameDocument && !fromInternal && services.shields.shouldBlockRedirect(this, target)) {
+        event.preventDefault()
       }
     })
 
@@ -321,6 +336,7 @@ export class Tab {
         return { action: 'deny' }
       }
       if (isTrustedInternalUrl(target)) return { action: 'deny' }
+      if (services.shields.shouldBlockPopup(this, details.features, target)) return { action: 'deny' }
       this.window.openTab(target, { background: details.disposition === 'background-tab', partition: this.partition })
       return { action: 'deny' }
     })
@@ -346,6 +362,7 @@ export class Tab {
       return
     }
     services.permissions.cancelForWebContents(wc.id)
+    services.shields.forgetTab(wc.id)
     registry.unregister(wc.id)
     wc.close({ waitForBeforeUnload: false })
     services.sessions.release(this.partition)

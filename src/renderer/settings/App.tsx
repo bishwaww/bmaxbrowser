@@ -5,8 +5,9 @@ import type { DohProviderId } from '@shared/privacy'
 import { SEARCH_ENGINES } from '@shared/search-engines'
 import type { Settings, SettingsPatch } from '@shared/settings'
 import { useSettings } from '../shared-ui/hooks'
+import { ShieldsSection } from './ShieldsSection'
 
-const SECTIONS = ['Appearance', 'Search', 'Privacy & Security', 'Network', 'Tor', 'About'] as const
+const SECTIONS = ['Appearance', 'Search', 'Shields', 'Privacy & Security', 'Network', 'Tor', 'About'] as const
 type Section = (typeof SECTIONS)[number]
 
 const inputStyle = { background: 'var(--field)', border: '1px solid var(--border)', userSelect: 'text' as const }
@@ -179,7 +180,10 @@ function TorSection() {
 
 export function App() {
   const settings = useSettings()
-  const [section, setSection] = useState<Section>('Appearance')
+  const [section, setSection] = useState<Section>(() => {
+    const q = new URLSearchParams(location.search).get('section')
+    return (SECTIONS as readonly string[]).includes(q ?? '') ? (q as Section) : 'Appearance'
+  })
   if (!settings) return null
   const update = (patch: SettingsPatch) => void window.bmax.cmd('settings.update', patch)
   const setPrivacy = (patch: Partial<Settings['privacy']>) => update({ privacy: { ...settings.privacy, ...patch } })
@@ -324,6 +328,7 @@ export function App() {
           </>
         )}
 
+        {section === 'Shields' && <ShieldsSection settings={settings} update={update} />}
         {section === 'Network' && <NetworkSection settings={settings} update={update} />}
         {section === 'Tor' && <TorSection />}
 

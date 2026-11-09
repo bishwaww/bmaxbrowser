@@ -31,11 +31,12 @@ export class SettingsStore extends EventEmitter {
   }
 
   update(patch: SettingsPatch): Settings {
+    const prev = this.settings
     const next = { ...this.settings } as Record<string, unknown>
     for (const [k, v] of Object.entries(patch)) if (v !== undefined) next[k] = v
     this.settings = settingsSchema.parse(next)
     this.scheduleSave()
-    this.emit('change', this.settings)
+    this.emit('change', this.settings, prev)
     return this.settings
   }
 

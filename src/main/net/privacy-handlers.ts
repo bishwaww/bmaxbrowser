@@ -65,6 +65,9 @@ export function registerPrivacyHandlers(pipeline: RequestPipeline): void {
     }
   })
 
+  // ------------------------------------------------------------------ 1b. Shields (ad / tracker / malware blocking)
+  services.shields.registerPipeline(pipeline)
+
   // ------------------------------------------------------------------ 2. strip tracking parameters (top-level GET navigations)
   pipeline.onBeforeRequest('tracking-params', (d) => {
     if (!settings().privacy.stripTrackingParams) return

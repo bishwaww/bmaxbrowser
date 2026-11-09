@@ -6,6 +6,7 @@
 import { ipcRenderer, webFrame } from 'electron'
 import { exposeBmaxApi } from './bridge'
 import { inject } from './fingerprint'
+import { injectYoutube } from './youtube'
 import type { WebConfig } from './fingerprint'
 
 if (location.protocol === 'bmax:' || (import.meta.env.DEV && location.origin === 'http://localhost:5173')) {
@@ -16,5 +17,6 @@ if (location.protocol === 'bmax:' || (import.meta.env.DEV && location.origin ===
   const cfg = ipcRenderer.sendSync('bmax:web-config') as WebConfig | null
   if (cfg) {
     void webFrame.executeJavaScript(`(${inject.toString()})(${JSON.stringify(cfg)})`)
+    if (cfg.youtube) void webFrame.executeJavaScript(`(${injectYoutube.toString()})(${JSON.stringify({ enabled: true })})`)
   }
 }

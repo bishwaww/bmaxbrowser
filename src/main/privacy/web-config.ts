@@ -3,6 +3,16 @@ import { createHash } from 'node:crypto'
 import { isThirdParty, siteOf } from '@shared/privacy'
 import { registry } from '../app/registry'
 import { services } from '../services'
+import { youtubeEnabledFor } from '../shields/youtube'
+
+function youtubeOn(frameUrl: string, topUrl: string): boolean {
+  try {
+    const host = new URL(frameUrl).hostname
+    return youtubeEnabledFor(host, services.settings.get().shields.youtube) && services.shields.siteEnabled(topUrl || frameUrl)
+  } catch {
+    return false
+  }
+}
 
 /** Per-frame privacy configuration, requested synchronously by the web preload before page scripts run. */
 export function registerWebConfig(): void {
@@ -30,7 +40,8 @@ export function registerWebConfig(): void {
       gpc: s.sendGpc,
       uniformUa: s.uniformUserAgent || tor,
       major: Number(process.versions.chrome.split('.')[0]),
-      thirdParty: (s.blockThirdPartyCookies || tor) && isThirdParty(topUrl, frameUrl)
+      thirdParty: (s.blockThirdPartyCookies || tor) && isThirdParty(topUrl, frameUrl),
+      youtube: youtubeOn(frameUrl, topUrl)
     }
   })
 }

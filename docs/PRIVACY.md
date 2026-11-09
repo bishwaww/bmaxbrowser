@@ -46,3 +46,15 @@ Everything in a Tor window goes through a Tor SOCKS5 proxy on `127.0.0.1`; name 
 bootstrapped, every request is blocked. Local-network addresses are blocked. HTTPS is forced (except `.onion`), WebRTC is removed,
 all permission requests are denied. This hides your IP address; it does **not** make the browser indistinguishable from other Tor
 Browser users (use the official Tor Browser for that).
+
+## Shields (ad / tracker blocking)
+- Blocking happens locally with the Ghostery adblocker engine; no browsing data is sent anywhere. Per-tab counters live in memory and
+  reset on every page load. Only three lifetime numbers are stored (see above). Sites where you turned Shields off are stored by
+  registrable domain in `settings.json` (your choice, listed in Settings → Shields).
+- **Filter-list downloads are the only network traffic Shields makes** (every 12 hours, and at startup if stale; switch off in
+  Settings → Shields → "Update lists automatically"). They are plain downloads without cookies or referrer, through the same proxy
+  setting as normal windows, from: easylist.to, ublockorigin.github.io, pgl.yoyo.org, filters.adtidy.org, secure.fanboy.co.nz,
+  curbengh.github.io (malware-filter, a mirror of abuse.ch URLhaus), raw.githubusercontent.com (uBlock scriptlet resources via the
+  Ghostery repository) and, only if you enable regional lists, easylist-downloads.adblockplus.org. Lists and the compiled engine are cached in
+  `userData/shields/` (filter data only). Your custom rules are stored in `userData/shields/custom-rules.txt`.
+- Pop-ups, automatic redirects and notification prompts are decided locally from whether you recently clicked or typed.

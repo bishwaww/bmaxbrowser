@@ -151,3 +151,9 @@ export const IconCircuit = (p: P) => (
     <path d="M7 11l3-4M14 7l3 4M17.5 13.5 14 17M10 17l-3.5-3.5" />
   </Svg>
 )
+export const IconShieldCheck = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z" />
+    <path d="M8.5 12l2.5 2.5 4.5-5" />
+  </Svg>
+)

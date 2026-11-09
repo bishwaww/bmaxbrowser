@@ -91,7 +91,7 @@ export function createHandlers(): Handlers {
     },
     'overlay.show': (a, { window }) => {
       // Showing one transient overlay closes the others.
-      if (a.kind === 'menu' || a.kind === 'cert') window.overlays.hideTransient(a.kind)
+      if (a.kind === 'menu' || a.kind === 'cert' || a.kind === 'shields') window.overlays.hideTransient(a.kind)
       window.overlays.show(a.kind, a.rect, a.data)
     },
     'overlay.hide': (a, { window }) => {
@@ -171,6 +171,26 @@ export function createHandlers(): Handlers {
     'passwords.save': (a) => services.vault.savePassword(a),
     'passwords.remove': (a) => services.vault.removePassword(a.id),
     'passwords.reveal': (a) => services.vault.reveal(a.id),
+    'shields.get': (_a, { window }) => services.shields.panelInfo(window.activeTab),
+    'shields.setSite': (a, { window }) => {
+      if (window.activeTab) services.shields.setSite(window.activeTab, a.enabled)
+    },
+    'shields.pick': async (_a, { window }) => {
+      const tab = window.activeTab
+      if (!tab) return { added: null }
+      window.overlays.hide('shields')
+      tab.wc.focus()
+      return { added: await services.shields.pick(tab) }
+    },
+    'shields.allowNavigation': (a, { window }) => {
+      if (window.activeTab) services.shields.allowNavigation(window.activeTab, a.url)
+    },
+    'shields.rules.get': () => services.shields.getRules(),
+    'shields.rules.set': (a) => services.shields.setRules(a.text),
+    'shields.lists': () => services.shields.listsInfo(),
+    'shields.refresh': () => {
+      void services.shields.refresh()
+    },
     'page.navigate': (a, { tab }) => {
       if (!tab) return
       tab.loadUrl(resolveOmnibox(a.input, services.settings.get().searchEngine).url)

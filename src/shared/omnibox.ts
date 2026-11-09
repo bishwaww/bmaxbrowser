@@ -32,8 +32,15 @@ export function resolveOmnibox(raw: string, engineId: string): OmniboxResult {
     if (BLOCKED_SCHEMES.has(proto)) return asSearch()
     if (ALLOWED_SCHEMES.has(proto)) {
       if (proto === `${INTERNAL_SCHEME}:`) {
-        const page = input.replace(/^bmax:\/\//i, '').split(/[/?#]/)[0] as InternalPage
-        return NAVIGABLE_PAGES.includes(page) ? { kind: 'url', url: internalUrl(page) } : asSearch()
+        const page = input.replace(/^bmax:\/\//i, '').split(/[/?#]/)[0]!.toLowerCase() as InternalPage
+        if (!NAVIGABLE_PAGES.includes(page)) return asSearch()
+        let search = ''
+        try {
+          search = new URL(input).search
+        } catch {
+          /* no query */
+        }
+        return { kind: 'url', url: internalUrl(page, search) }
       }
       if (proto === 'about:') {
         return input.toLowerCase() === 'about:blank' ? { kind: 'url', url: 'about:blank' } : asSearch()

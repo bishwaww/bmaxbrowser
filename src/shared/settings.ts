@@ -32,6 +32,19 @@ const proxySchema = z.object({
   port: z.number().int().min(0).max(65535)
 })
 
+const shieldsSchema = z.object({
+  enabled: z.boolean(),
+  /** Per-list on/off overrides (absent = the list's default). */
+  lists: z.record(z.string().max(64), z.boolean()),
+  autoUpdate: z.boolean(),
+  blockPopups: z.boolean(),
+  blockRedirects: z.boolean(),
+  blockNotifications: z.boolean(),
+  youtube: z.boolean(),
+  /** Registrable domains where the user turned Shields off. */
+  disabledSites: z.array(z.string().max(253)).max(500)
+})
+
 export const settingsSchema = z.object({
   searchEngine: z.enum(SEARCH_ENGINES.map((e) => e.id) as [string, ...string[]]),
   theme: z.enum(['system', 'light', 'dark']),
@@ -39,6 +52,7 @@ export const settingsSchema = z.object({
   showHomeButton: z.boolean(),
   tiles: z.array(tileSchema).max(24),
   privacy: privacySchema,
+  shields: shieldsSchema,
   proxy: proxySchema,
   permissions: z.object({
     /** What to do when a site asks and there is no stored decision. */
@@ -70,6 +84,16 @@ export const DEFAULT_SETTINGS: Settings = {
     sendGpc: true,
     uniformUserAgent: true,
     doh: { mode: 'secure', provider: 'quad9', customUrl: '' }
+  },
+  shields: {
+    enabled: true,
+    lists: {},
+    autoUpdate: true,
+    blockPopups: true,
+    blockRedirects: true,
+    blockNotifications: true,
+    youtube: true,
+    disabledSites: []
   },
   proxy: { enabled: false, scheme: 'socks5', host: '127.0.0.1', port: 1080 },
   permissions: { defaultAction: 'ask', persist: false }

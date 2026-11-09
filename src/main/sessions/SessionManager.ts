@@ -1,4 +1,5 @@
 import { randomBytes } from 'node:crypto'
+import { createRequire } from 'node:module'
 import { session } from 'electron'
 import type { Session } from 'electron'
 import { proxyRules, uniformUserAgent, UNIFORM_ACCEPT_LANGUAGE } from '@shared/privacy'
@@ -9,6 +10,9 @@ import type { CertCache } from '../net/cert-cache'
 import type { RequestPipeline } from '../net/RequestPipeline'
 import type { PermissionManager } from '../permissions/PermissionManager'
 import type { SettingsStore } from '../settings/SettingsStore'
+
+// Ghostery's cosmetic-filtering preload (sandbox-safe: it only needs `electron`).
+const SHIELDS_PRELOAD = createRequire(__filename).resolve('@ghostery/adblocker-electron-preload')
 
 /** No "persist:" prefix → memory-only partitions: no cookies/cache/localStorage/IndexedDB ever written to disk. */
 export const PRIVATE_PARTITION = 'bmax-private'
@@ -84,6 +88,8 @@ export class SessionManager {
     this.deps.permissions.attach(ses, tor)
     this.deps.pipeline.install(ses, { partition, tor })
     ses.registerPreloadScript({ type: 'frame', filePath: preloadPath('web') })
+    // Cosmetic filtering + scriptlet injection (asks main for rules; main decides per site whether Shields is on).
+    ses.registerPreloadScript({ type: 'frame', filePath: SHIELDS_PRELOAD })
     configureSpellcheck(ses)
     this.entries.set(partition, {
       ses,
@@ -93,6 +99,18 @@ export class SessionManager {
       secret: randomBytes(16).toString('hex')
     })
     this.configure(ses, tor)
+    return ses
+  }
+
+  private utility_: Session | null = null
+
+  /** Session for the browser's own downloads (filter lists, updates): generic UA, honours the user's proxy, never Tor. */
+  utility(): Session {
+    if (this.utility_) return this.utility_
+    const ses = session.fromPartition('bmax-updates')
+    this.entries.set('bmax-updates', { ses, tor: false, ephemeral: false, refs: 1, secret: '' })
+    this.configure(ses, false)
+    this.utility_ = ses
     return ses
   }
 

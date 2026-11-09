@@ -5,6 +5,7 @@ import type { Settings } from '@shared/settings'
 import type { OverlayKind, SuggestionItem, TabInfo, WindowState } from '@shared/types'
 import {
   IconBack,
+  IconShieldCheck,
   IconCircuit,
   IconFlame,
   IconStar,
@@ -288,6 +289,7 @@ export function Toolbar({
         )}
       </div>
 
+      <ShieldsButton tab={tab} toggleOverlay={toggleOverlay} />
       {tab && /^https?:\/\//i.test(tab.url) && (
         <button
           className="icon-btn"
@@ -317,6 +319,41 @@ export function Toolbar({
         />
       )}
     </div>
+  )
+}
+
+function ShieldsButton({
+  tab,
+  toggleOverlay
+}: {
+  tab: TabInfo | undefined
+  toggleOverlay: (kind: OverlayKind, rect: { x: number; y: number; width: number; height: number }, data?: unknown) => void
+}) {
+  const ref = useRef<HTMLButtonElement>(null)
+  const on = tab?.shields.enabled ?? true
+  const count = tab?.shields.blocked ?? 0
+  return (
+    <button
+      ref={ref}
+      className="icon-btn relative"
+      aria-label={`Shields: ${count} blocked`}
+      title={on ? `Shields are up — ${count} blocked on this page` : 'Shields are off for this site'}
+      style={{ color: on ? 'var(--accent)' : 'var(--muted)' }}
+      onClick={() => {
+        const r = ref.current?.getBoundingClientRect()
+        if (r) toggleOverlay('shields', { x: Math.max(8, r.right - 372), y: r.bottom + 4, width: 372, height: 380 }, {})
+      }}
+    >
+      <IconShieldCheck />
+      {on && count > 0 && (
+        <span
+          className="absolute rounded-full text-center font-semibold"
+          style={{ top: 0, right: -2, minWidth: 15, height: 15, lineHeight: '15px', fontSize: 9, padding: '0 3px', background: 'var(--accent)', color: 'var(--on-accent)' }}
+        >
+          {count > 99 ? '99+' : count}
+        </span>
+      )}
+    </button>
   )
 }
 

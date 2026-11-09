@@ -35,7 +35,10 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
   - Privacy request logic lives in `net/privacy-handlers.ts` (pipeline handlers); per-frame fingerprint config via sync IPC `bmax:web-config` (`privacy/web-config.ts`) → `preload/fingerprint.ts` (stringified, runs in main world).
   - Sessions: `bmax-private` (shared), `bmax-ctr-*` containers, `bmax-iso-*` isolated windows, `bmax-tor-*` Tor windows; ephemeral ones are wiped when their last tab closes (`SessionManager.release`). Burn = `WindowManager.burn()`.
   - New internal pages: warning (HTTPS-Only), tor (bootstrap progress), bookmarks (vault UI).
-- [ ] Phase 3 Shields
+- [x] Phase 3 Shields (62 e2e + 49 unit green; opt-in `BMAX_NETWORK=1` real-list tests pass except the YouTube ad check, see below)
+  - `src/main/shields/`: `ListStore` (download + conditional GET + disk cache), `engine-worker` (compiles lists off-thread via `?nodeWorker`), `ShieldsEngine` (3 engines: custom > trackers > ads), `ShieldsManager` (pipeline handler, cosmetic/scriptlet IPC, per-tab stats, popup/redirect/notification rules, picker, rules, updater), `youtube/` (host match + CSS) and `src/preload/youtube.ts` (in-page ad pruning + auto-skip; self-contained, edit AD_KEYS/AD_RENDERERS when YouTube changes).
+  - Ghostery's cosmetic preload is registered per session, but we do NOT call `enableBlockingInSession` (it would steal the webRequest listeners); our own ipcMain handler applies cosmetics (main-frame CSS via insertCSS, scriptlets via the sender frame). Scriptlets are de-duplicated (quick-fixes/unbreak are in both engines).
+  - Known: cosmetic/scriptlet injection is asynchronous (IPC round trip), so early page scripts can run first; real YouTube returns an error/bot-check player response to this unsigned client, so ad removal there is verified only on YouTube-shaped test data; the d3ward test page is archived (canyoublockit.com and adblock-tester.com are used instead); first run needs network to download lists (no bundled snapshot); URLhaus list is large (~11 MB).
 - [ ] Phase 4 Media downloader
 - [ ] Phase 5 Torrents
 - [ ] Phase 6 Settings/extensions/polish/packaging

@@ -7,6 +7,7 @@ import type { SettingsStore } from '../settings/SettingsStore'
 import { readJson, writeJsonAtomic } from '../settings/JsonStore'
 import type { BmaxWindow } from '../windows/BmaxWindow'
 import { registry } from '../app/registry'
+import { services } from '../services'
 
 type Decision = 'allow' | 'deny'
 
@@ -107,6 +108,9 @@ export class PermissionManager {
     const origin = originOf(details.requestingUrl ?? wc?.getURL() ?? '')
     const desc = describe(permission, details)
     if (!wc || info?.role !== 'tab' || !origin || !desc) return callback(false)
+
+    // Shields: notification prompts are treated as spam by default and never shown.
+    if (permission === 'notifications' && services.shields.shouldBlockNotificationPrompt(info.tab)) return callback(false)
 
     const storeKey = `${info.tab.partition}|${origin}|${desc.key}`
     const stored = this.decisions.get(storeKey)

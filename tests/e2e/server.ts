@@ -55,6 +55,40 @@ export async function startServer(): Promise<TestServer> {
       case '/setcookie-img':
         res.writeHead(200, { 'content-type': 'image/png', 'set-cookie': 'img=1; Path=/' })
         return void res.end(PNG)
+      case '/shields':
+        return send(`<!doctype html><title>Shields</title><body>
+          <script src="/ads/banner.js"></script>
+          <img id="px" src="/ads/pixel.gif">
+          <div class="ad-box" style="width:100px;height:40px">AD</div>
+          <div id="keep" style="width:100px;height:40px">keep</div>
+          <div id="target-el" class="promo-widget" style="width:200px;height:60px;margin-top:20px">promo</div>
+          <script src="${b()}/track.js"></script>
+          </body>`)
+      case '/ads/banner.js':
+        return send('window.__adLoaded = true', 'text/javascript')
+      case '/ads/pixel.gif':
+        res.writeHead(200, { 'content-type': 'image/png' })
+        return void res.end(PNG)
+      case '/track.js':
+        return send('window.__trackerLoaded = true', 'text/javascript')
+      case '/popup-auto':
+        return send("<!doctype html><title>PopupAuto</title><body><script>window.open('/b', '_blank', 'width=300,height=300')</script></body>")
+      case '/popup-click':
+        return send("<!doctype html><title>PopupClick</title><body style='margin:0'><button id='go' style='width:200px;height:80px' onclick=\"window.open('/b', '_blank', 'width=300,height=300')\">open</button></body>")
+      case '/redirect-auto':
+        return send(`<!doctype html><title>RedirectAuto</title><body><script>setTimeout(() => { location.href = '${b()}/b' }, 600)</script></body>`)
+      case '/redirect-click':
+        return send(`<!doctype html><title>RedirectClick</title><body style='margin:0'><button id='go' style='width:200px;height:80px' onclick="location.href='${b()}/b'">go</button></body>`)
+      case '/yt-watch':
+        return send(`<!doctype html><title>YT</title><body>
+          <script>
+            window.ytInitialPlayerResponse = { playabilityStatus: {}, adPlacements: [1], playerAds: [2], videoDetails: { videoId: 'v' } };
+            window.__parsed = JSON.parse('{"responseContext":{},"playerAds":[1],"x":1}');
+          </script>
+          <ytd-ad-slot-renderer style="display:block">ad</ytd-ad-slot-renderer>
+          <div class="html5-video-player ad-showing"><video></video>
+            <button class="ytp-skip-ad-button" onclick="window.__skipped = true">Skip</button></div>
+          </body>`)
       case '/echo':
         return send(req.headers.cookie ?? '', 'text/plain')
       case '/embed':

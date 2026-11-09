@@ -186,7 +186,8 @@ test('connection failure shows the error page and keeps the failed URL in the ad
 test('links opened with target=_blank open in a new tab; mailto asks before opening externally', async () => {
   await resetTabs()
   await navigate(srv.origin + '/')
-  await inMain(h.app, `s.windows.focused().activeTab.wc.executeJavaScript("document.getElementById('blank').click()")`)
+  // Shields only lets a link open a tab right after a user gesture; simulate that for the scripted click.
+  await inMain(h.app, `const t = s.windows.focused().activeTab; t.lastGestureAt = Date.now(); t.wc.executeJavaScript("document.getElementById('blank').click()")`)
   await waitFor(tabs, (t) => t.length === 2)
   expect((await tabs()).length).toBe(2)
 
@@ -232,6 +233,7 @@ test('internal pages expose the API; web pages do not', async () => {
 
 test('permission prompt: Notification request shows prompt, Allow grants it', async () => {
   await resetTabs()
+  await inMain(h.app, `s.settings.update({ shields: { ...s.settings.get().shields, blockNotifications: false } })`)
   await navigate(srv.origin + '/perm')
   await sleep(800)
   const overlay = await waitFor(async () => overlayPage('permission'), (p) => !!p)

@@ -70,6 +70,7 @@ test.describe('request privacy', () => {
 
   test('trims cross-site referrers to the origin', async () => {
     await go(`${srv.a}/ref`)
+    await inMain(h.app, 's.windows.focused().activeTab.lastGestureAt = Date.now()') // a real click would count as a gesture
     await js("document.getElementById('x').click()")
     await sleep(800)
     const headers = JSON.parse(await body()) as Record<string, string>

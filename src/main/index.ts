@@ -3,6 +3,7 @@ import { IPC_PUSH } from '@shared/ipc'
 import type { PushMessage } from '@shared/ipc'
 import { applyFlags } from './app/flags'
 import { internalUrl } from '@shared/internal'
+import type { Settings } from '@shared/settings'
 import type { TorState } from '@shared/types'
 import { internalPageOf, isTrustedInternalUrl, registerInternalScheme } from './app/internal-pages'
 import { CertCache } from './net/cert-cache'
@@ -14,6 +15,7 @@ import { registerPrivacyHandlers } from './net/privacy-handlers'
 import { PermissionManager } from './permissions/PermissionManager'
 import { registerWebConfig } from './privacy/web-config'
 import { TorManager } from './tor/TorManager'
+import { ShieldsManager } from './shields/ShieldsManager'
 import { Vault } from './vault/Vault'
 import { initSpellcheck } from './privacy/spellcheck'
 import { services } from './services'
@@ -76,6 +78,7 @@ void app.whenReady().then(async () => {
   services.pipeline = new RequestPipeline()
   services.permissions = new PermissionManager(services.settings)
   services.permissions.init()
+  services.shields = new ShieldsManager()
   registerPrivacyHandlers(services.pipeline)
   registerWebConfig()
   services.tor = new TorManager()
@@ -143,7 +146,8 @@ void app.whenReady().then(async () => {
       }
     }
   })
-  services.settings.on('change', (settings) => {
+  services.settings.on('change', (settings: Settings, prev: Settings) => {
+    services.shields.onSettingsChange(prev, settings)
     applyDoh(settings)
     services.sessions.applySettings()
     const themeChanged = nativeTheme.themeSource !== settings.theme
@@ -157,4 +161,5 @@ void app.whenReady().then(async () => {
   if (process.env['BMAX_TEST'] === '1') (globalThis as Record<string, unknown>)['__bmax'] = services
 
   services.windows.create({ url: urlFromArgv(process.argv) })
+  services.shields.init()
 })

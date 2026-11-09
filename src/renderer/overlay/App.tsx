@@ -5,9 +5,10 @@ import { CertView } from './CertView'
 import { FindView } from './FindView'
 import { MenuView } from './MenuView'
 import { PermissionView } from './PermissionView'
+import { ShieldsView } from './ShieldsView'
 import { SuggestView } from './SuggestView'
 
-const KINDS: OverlayKind[] = ['menu', 'cert', 'permission', 'find', 'suggest']
+const KINDS: OverlayKind[] = ['menu', 'cert', 'permission', 'find', 'suggest', 'shields']
 
 function kindFromUrl(): OverlayKind {
   const k = new URLSearchParams(location.search).get('kind') as OverlayKind | null
@@ -56,6 +57,7 @@ export function App() {
         {kind === 'permission' && <PermissionView data={payload.data as never} />}
         {kind === 'find' && <FindView data={payload.data as { text: string }} seq={payload.seq} />}
         {kind === 'suggest' && <SuggestView data={payload.data as never} />}
+        {kind === 'shields' && <ShieldsView />}
       </div>
     </div>
   )

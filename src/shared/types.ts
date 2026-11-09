@@ -1,5 +1,5 @@
 export type SecurityLevel = 'internal' | 'secure' | 'insecure' | 'error' | 'file' | 'none'
-export type OverlayKind = 'menu' | 'cert' | 'permission' | 'find' | 'suggest'
+export type OverlayKind = 'menu' | 'cert' | 'permission' | 'find' | 'suggest' | 'shields'
 export type Platform = 'win32' | 'darwin' | 'linux'
 
 export interface TabInfo {
@@ -19,6 +19,8 @@ export interface TabInfo {
   container: string | null
   /** Current URL is in the (unlocked) bookmarks vault. */
   bookmarked: boolean
+  /** Shields state for this tab: site toggle and number of items blocked on the current page. */
+  shields: { enabled: boolean; blocked: number }
 }
 
 export interface WindowState {
