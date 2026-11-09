@@ -28,7 +28,7 @@ export function buildContextMenu(tab: Tab, p: ContextMenuParams): Menu {
   if (p.linkURL) {
     t.push(
       { label: 'Open link in new tab', click: () => win.openTab(p.linkURL, { background: true, partition: tab.partition }) },
-      { label: 'Open link in new window', click: () => services.windows.create({ url: p.linkURL, partition: tab.partition }) },
+      { label: 'Open link in new window', click: () => services.windows.create({ url: p.linkURL, partition: tab.partition, tor: win.tor, isolated: win.isolated }) },
       { label: 'Copy link address', click: () => clipboard.writeText(p.linkURL) }
     )
     sep()

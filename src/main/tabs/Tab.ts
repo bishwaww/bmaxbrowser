@@ -6,6 +6,7 @@ import { matchShortcut } from '@shared/shortcuts'
 import { confirmAndOpenExternal, isBrowserHandledUrl } from '../app/external'
 import { internalPageOf, isTrustedInternalUrl, resolveLoadUrl, toLogicalUrl } from '../app/internal-pages'
 import { registry } from '../app/registry'
+import { upgradedNavigations } from '../net/privacy-handlers'
 import { services } from '../services'
 import type { BmaxWindow } from '../windows/BmaxWindow'
 import { buildContextMenu } from './contextMenu'
@@ -32,7 +33,7 @@ export class Tab {
   constructor(window: BmaxWindow, partition: string, url?: string) {
     this.window = window
     this.partition = partition
-    const ses: Session = services.sessions.web(partition)
+    const ses: Session = services.sessions.web(partition, { tor: window.tor })
     this.view = new WebContentsView({
       webPreferences: {
         session: ses,
@@ -49,6 +50,9 @@ export class Tab {
     })
     this.view.setBackgroundColor('#ffffff')
     registry.register(this.wc, { role: 'tab', tab: this })
+    services.sessions.retain(partition)
+    // No ICE candidates over direct UDP: a WebRTC page can never learn or leak the real IP address.
+    this.wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
     this.bind()
     this.loadUrl(url ?? services.settings.get().homepage)
   }
@@ -95,7 +99,7 @@ export class Tab {
   get url(): string {
     const current = toLogicalUrl(this.wc.getURL())
     const parsed = parseInternalUrl(current)
-    if (parsed?.page === 'error') {
+    if (parsed?.page === 'error' || parsed?.page === 'warning') {
       const failed = new URLSearchParams(parsed.search).get('url')
       if (failed) return failed
     }
@@ -109,6 +113,9 @@ export class Tab {
     if (parsed?.page === 'newtab') return 'New Tab'
     if (parsed?.page === 'settings') return 'Settings'
     if (parsed?.page === 'error') return "Can't reach this page"
+    if (parsed?.page === 'warning') return 'Connection not secure'
+    if (parsed?.page === 'tor') return 'Connecting to Tor'
+    if (parsed?.page === 'bookmarks') return 'Bookmarks'
     const t = this.wc.getTitle()
     if (t) return t
     try {
@@ -158,7 +165,9 @@ export class Tab {
       muted: this.muted,
       audible: this.audible,
       security: this.security,
-      isNewTab: internalPageOf(this.wc.getURL()) === 'newtab'
+      isNewTab: internalPageOf(this.wc.getURL()) === 'newtab',
+      container: services.sessions.containerLabel(this.partition),
+      bookmarked: services.vault.hasBookmark(url)
     }
   }
 
@@ -239,6 +248,7 @@ export class Tab {
       }
     })
     wc.on('did-navigate', () => {
+      upgradedNavigations.delete(wc.id)
       this.pendingUrl = null
       this.lastFaviconUrl = ''
       this.favicon = null
@@ -249,6 +259,16 @@ export class Tab {
     wc.on('did-fail-load', (_e, code, desc, validatedUrl, isMainFrame) => {
       if (!isMainFrame || code === -3 || isInternalUrl(toLogicalUrl(validatedUrl))) return
       this.loading = false
+      const up = upgradedNavigations.get(wc.id)
+      if (up) {
+        upgradedNavigations.delete(wc.id)
+        // The HTTPS-Only upgrade failed: ask before falling back to plain HTTP.
+        if (validatedUrl === up.to || new URL(validatedUrl).host === new URL(up.to).host) {
+          const w = new URLSearchParams({ url: up.from, code: String(code) })
+          this.wc.loadURL(resolveLoadUrl(internalUrl('warning', `?${w.toString()}`))).catch(() => undefined)
+          return
+        }
+      }
       const q = new URLSearchParams({ code: String(code), desc, url: validatedUrl })
       this.wc.loadURL(resolveLoadUrl(internalUrl('error', `?${q.toString()}`))).catch(() => undefined)
     })
@@ -321,9 +341,13 @@ export class Tab {
     if (this.destroyed) return
     this.destroyed = true
     const wc = this.wc
-    if (wc.isDestroyed()) return
+    if (wc.isDestroyed()) {
+      services.sessions.release(this.partition)
+      return
+    }
     services.permissions.cancelForWebContents(wc.id)
     registry.unregister(wc.id)
     wc.close({ waitForBeforeUnload: false })
+    services.sessions.release(this.partition)
   }
 }

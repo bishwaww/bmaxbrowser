@@ -29,6 +29,8 @@ export type ShortcutCommand =
   | 'closeWindow'
   | 'settings'
   | 'burn'
+  | 'newTorWindow'
+  | 'bookmarkPage'
   | 'downloads'
 
 export interface KeyInput {
@@ -73,6 +75,7 @@ export function matchShortcut(input: KeyInput, platform: string): ShortcutComman
 
   if (mod && alt) {
     if (key === 'i') return 'devtools'
+    if (key === 'n') return 'newTorWindow'
     return null
   }
 
@@ -113,6 +116,8 @@ export function matchShortcut(input: KeyInput, platform: string): ShortcutComman
       return shift ? 'devtools' : null
     case 'j':
       return 'downloads'
+    case 'd':
+      return 'bookmarkPage'
     case ',':
       return 'settings'
     case '+':

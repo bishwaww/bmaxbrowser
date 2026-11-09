@@ -1,7 +1,13 @@
 import { z } from 'zod'
 import { settingsPatchSchema } from './settings'
 import type { Settings, PrivacyStats } from './settings'
-import type { CertInfo, OverlayKind, Rect, WindowState } from './types'
+import type { CertInfo, OverlayKind, Rect, TorState, WindowState } from './types'
+import type { Bookmark, PasswordEntry, VaultStatus } from './vault'
+
+export interface VaultResult {
+  ok: boolean
+  error?: string | undefined
+}
 
 export { IPC_CMD, IPC_PUSH } from './channels'
 
@@ -14,6 +20,7 @@ const empty = z.object({}).strict().optional()
 /** zod schema per command. Every IPC message is parsed against these in the main process. */
 export const commandSchemas = {
   'tab.new': z.object({ url: url.optional(), background: z.boolean().optional() }).optional(),
+  'tab.newContainer': z.object({ url: url.optional() }).optional(),
   'tab.close': z.object({ id }),
   'tab.activate': z.object({ id }),
   'tab.move': z.object({ id, index: z.number().int().min(0).max(1000) }),
@@ -43,7 +50,10 @@ export const commandSchemas = {
       'settings',
       'zoomIn',
       'zoomOut',
-      'zoomReset'
+      'zoomReset',
+      'newTorWindow',
+      'burn',
+      'bookmarkPage'
     ])
   }),
   'overlay.show': z.object({ kind, rect, data: z.unknown().optional() }),
@@ -60,6 +70,23 @@ export const commandSchemas = {
   'settings.update': settingsPatchSchema,
   'stats.get': empty,
   'theme.get': empty,
+  'warning.proceedHttp': z.object({ url }),
+  'vault.status': empty,
+  'vault.create': z.object({ password: z.string().min(1).max(256) }),
+  'vault.unlock': z.object({ password: z.string().min(1).max(256) }),
+  'vault.lock': empty,
+  'vault.destroy': z.object({ password: z.string().min(1).max(256) }),
+  'bookmarks.list': empty,
+  'bookmarks.add': z.object({ title: z.string().max(200), url: z.string().max(2048), folder: z.string().max(200).optional() }),
+  'bookmarks.remove': z.object({ id: z.string().max(64) }),
+  'bookmarks.import': empty,
+  'passwords.list': empty,
+  'passwords.save': z.object({ id: z.string().max(64).optional(), site: z.string().min(1).max(253), username: z.string().max(256), password: z.string().min(1).max(1024) }),
+  'passwords.remove': z.object({ id: z.string().max(64) }),
+  'passwords.reveal': z.object({ id: z.string().max(64) }),
+  'tor.status': empty,
+  'tor.retry': empty,
+  'tor.newCircuit': empty,
   /** Internal pages ask main to navigate their own tab (new-tab search box, tiles, error page retry). */
   'page.navigate': z.object({ input: z.string().max(8192) })
 } as const
@@ -72,7 +99,19 @@ export interface CommandResults {
   'settings.get': Settings
   'settings.update': Settings
   'stats.get': PrivacyStats
-  'theme.get': 'light' | 'dark'
+  'theme.get': 'light' | 'dark' | 'tor'
+  'tor.status': TorState
+  'vault.status': VaultStatus
+  'vault.create': VaultResult
+  'vault.unlock': VaultResult
+  'vault.destroy': VaultResult
+  'bookmarks.list': Bookmark[]
+  'bookmarks.add': Bookmark
+  'bookmarks.import': { added: number; error?: string }
+  'passwords.list': PasswordEntry[]
+  'passwords.save': PasswordEntry
+  'passwords.reveal': string | null
+  'tor.newCircuit': boolean
 }
 export type CommandResult<K extends CommandName> = K extends keyof CommandResults ? CommandResults[K] : void
 
@@ -84,6 +123,7 @@ const P: Role[] = ['page']
 /** Which webContents roles may call each command. */
 export const commandRoles: Record<CommandName, readonly Role[]> = {
   'tab.new': CO,
+  'tab.newContainer': CO,
   'tab.close': C,
   'tab.activate': CO,
   'tab.move': C,
@@ -100,7 +140,7 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'nav.reload': C,
   'nav.stop': C,
   'nav.home': C,
-  'window.action': CO,
+  'window.action': ['chrome', 'overlay', 'page'],
   'overlay.show': C,
   'overlay.hide': CO,
   'overlay.resize': ['overlay'],
@@ -113,6 +153,23 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'settings.update': ['chrome', 'page'],
   'stats.get': P,
   'theme.get': ['chrome', 'overlay', 'page'],
+  'warning.proceedHttp': P,
+  'vault.status': ['chrome', 'page'],
+  'vault.create': P,
+  'vault.unlock': P,
+  'vault.lock': P,
+  'vault.destroy': P,
+  'bookmarks.list': P,
+  'bookmarks.add': P,
+  'bookmarks.remove': P,
+  'bookmarks.import': P,
+  'passwords.list': P,
+  'passwords.save': P,
+  'passwords.remove': P,
+  'passwords.reveal': P,
+  'tor.status': ['chrome', 'page'],
+  'tor.retry': P,
+  'tor.newCircuit': C,
   'page.navigate': P
 }
 
@@ -124,4 +181,5 @@ export type PushMessage =
   | { type: 'overlay-closed'; kind: OverlayKind }
   | { type: 'find-result'; activeMatch: number; matches: number }
   | { type: 'settings'; settings: Settings }
-  | { type: 'theme'; theme: 'light' | 'dark' }
+  | { type: 'theme'; theme: 'light' | 'dark' | 'tor' }
+  | { type: 'tor-status'; state: TorState }

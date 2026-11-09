@@ -24,6 +24,8 @@ export interface WindowOptions {
   empty?: boolean
   partition?: string
   isolated?: boolean
+  /** Tor window (its partition must come from SessionManager.prepareTor). */
+  tor?: boolean
   bounds?: Partial<Rectangle>
 }
 
@@ -36,6 +38,7 @@ export class BmaxWindow {
   readonly overlays: OverlayManager
   readonly partition: string
   readonly isolated: boolean
+  readonly tor: boolean
   tabs: Tab[] = []
   activeTab: Tab | null = null
   private htmlFullscreen = false
@@ -46,9 +49,10 @@ export class BmaxWindow {
 
   constructor(opts: WindowOptions = {}) {
     this.isolated = opts.isolated ?? false
+    this.tor = opts.tor ?? false
     this.partition = opts.partition ?? (this.isolated ? services.sessions.newIsolatedPartition() : PRIVATE_PARTITION)
     const dark = nativeTheme.shouldUseDarkColors
-    const colors = chromeColors(dark)
+    const colors = chromeColors(dark, this.tor)
 
     this.base = new BaseWindow({
       width: 1280,
@@ -153,8 +157,9 @@ export class BmaxWindow {
       progress: active?.loading ? active.progress : 0,
       zoomPercent: active ? Math.round(active.zoomFactor * 100) : 100,
       isolated: this.isolated,
-      theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
-      showHomeButton: services.settings.get().showHomeButton
+      theme: this.tor ? 'tor' : nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
+      showHomeButton: services.settings.get().showHomeButton,
+      tor: this.tor
     }
   }
 
@@ -171,7 +176,7 @@ export class BmaxWindow {
 
   applyTheme(): void {
     if (this.disposed) return
-    const colors = chromeColors(nativeTheme.shouldUseDarkColors)
+    const colors = chromeColors(nativeTheme.shouldUseDarkColors, this.tor)
     this.base.setBackgroundColor(colors.strip)
     this.chromeView.setBackgroundColor(colors.strip)
     if (process.platform !== 'darwin') {
@@ -425,10 +430,10 @@ export class BmaxWindow {
         if (tab && /^(https?|file):/i.test(tab.url)) this.openTab(`view-source:${tab.url}`)
         return
       case 'newWindow':
-        services.windows.create({})
-        return
       case 'newIsolatedWindow':
-        services.windows.create({ isolated: true })
+        // A new window opened from a Tor window is another Tor window (never a clearnet one).
+        if (this.tor) void services.windows.createTor()
+        else services.windows.create({ isolated: cmd === 'newIsolatedWindow' })
         return
       case 'savePage':
         void this.savePage()
@@ -452,8 +457,16 @@ export class BmaxWindow {
         return
       }
       case 'burn':
+        void services.windows.burn()
+        return
+      case 'newTorWindow':
+        void services.windows.createTor()
+        return
+      case 'bookmarkPage':
+        this.toggleBookmark()
+        return
       case 'downloads':
-        // Implemented in Phase 2 (Burn) and Phase 4 (Downloads manager).
+        // Implemented in Phase 4 (Downloads manager).
         return
       default:
         if (typeof cmd === 'string' && cmd.startsWith('selectTab:')) {
@@ -462,6 +475,21 @@ export class BmaxWindow {
           if (t) this.activate(t)
         }
     }
+  }
+
+  private toggleBookmark(): void {
+    const tab = this.activeTab
+    if (!tab || !/^https?:\/\//i.test(tab.url)) return
+    const vault = services.vault
+    if (!vault.isUnlocked()) {
+      // Locked or not set up: the bookmarks page offers to create/unlock the vault, then adds the page.
+      const q = new URLSearchParams({ add: tab.url, title: tab.title })
+      this.openTab(internalUrl('bookmarks', `?${q.toString()}`))
+      return
+    }
+    if (vault.hasBookmark(tab.url)) vault.removeBookmarkByUrl(tab.url)
+    else vault.addBookmark({ title: tab.title, url: tab.url })
+    this.notify()
   }
 
   private async savePage(): Promise<void> {

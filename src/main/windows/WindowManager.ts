@@ -1,5 +1,9 @@
 import { app, screen } from 'electron'
 import type { Rectangle } from 'electron'
+import { internalUrl } from '@shared/internal'
+import { clearPrivacyExceptions } from '../net/privacy-handlers'
+import { services } from '../services'
+import { clearFaviconCache } from '../tabs/favicon'
 import { ZoomStore } from '../tabs/zoom'
 import type { Tab } from '../tabs/Tab'
 import { BmaxWindow } from './BmaxWindow'
@@ -40,8 +44,33 @@ export class WindowManager {
     this.current = win
   }
 
+  /** Tor window: reserve the proxy port, build a fully proxied session, THEN open the window (fail closed). */
+  async createTor(): Promise<BmaxWindow> {
+    const port = await services.tor.reservePort()
+    const partition = await services.sessions.prepareTor(port)
+    const win = this.create({ url: internalUrl('tor'), partition, tor: true, isolated: true })
+    void services.tor.start()
+    return win
+  }
+
+  /** Burn: wipe every session, close every tab and window, forget everything, open one fresh window. */
+  async burn(): Promise<void> {
+    const old = this.all()
+    const fresh = this.create({})
+    for (const w of old) w.base.close()
+    await services.sessions.burnAll()
+    services.permissions.reset()
+    services.vault.lock()
+    this.zoom.clear()
+    this.clearClosed()
+    clearFaviconCache()
+    clearPrivacyExceptions()
+    fresh.notify()
+  }
+
   remove(win: BmaxWindow): void {
     this.windows.delete(win)
+    if (win.tor && !this.all().some((w) => w.tor)) services.tor.stop()
     if (this.current === win) this.current = this.all()[0] ?? null
     if (this.windows.size === 0) app.quit()
   }
@@ -62,7 +91,7 @@ export class WindowManager {
   /** Window whose tab strip is under a screen point (for dropping a dragged tab onto another window). */
   private windowAtStrip(x: number, y: number, exclude: BmaxWindow): BmaxWindow | null {
     for (const w of this.windows) {
-      if (w === exclude || w.isDisposed || w.base.isMinimized()) continue
+      if (w === exclude || w.isDisposed || w.base.isMinimized() || w.tor !== exclude.tor) continue
       const b = w.base.getContentBounds()
       if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + CHROME_H) return w
     }
@@ -89,6 +118,7 @@ export class WindowManager {
       empty: true,
       partition: tab.partition,
       isolated: source.isolated,
+      tor: source.tor,
       bounds: { x: Math.round(screenX - 120), y: Math.round(screenY - 16), width, height }
     })
     source.detachTab(tab)

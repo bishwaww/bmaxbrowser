@@ -40,6 +40,14 @@ export function MenuView() {
       />
       <Row label="New window" hint={`${mod}N`} onClick={act('newWindow')} />
       <Row label="New isolated window" hint={`${mod}Shift+N`} onClick={act('newIsolatedWindow')} />
+      <Row
+        label="New container tab"
+        onClick={() => {
+          void window.bmax.cmd('tab.newContainer')
+          void window.bmax.cmd('overlay.hide', { kind: 'menu' })
+        }}
+      />
+      <Row label="New Tor window" hint={mac ? '⌘⌥N' : 'Ctrl+Alt+N'} onClick={act('newTorWindow')} />
       <Sep />
       <div className="flex items-center justify-between px-4" style={{ height: 36 }}>
         <span>Zoom</span>
@@ -70,6 +78,14 @@ export function MenuView() {
       <Row label="View page source" hint={`${mod}U`} onClick={act('viewSource')} />
       <Row label="Developer tools" hint="F12" onClick={act('devtools')} />
       <Sep />
+      <Row
+        label="Bookmarks & passwords"
+        onClick={() => {
+          void window.bmax.cmd('tab.new', { url: 'bmax://bookmarks' })
+          void window.bmax.cmd('overlay.hide', { kind: 'menu' })
+        }}
+      />
+      <Row label="Burn all browsing data" hint={`${mod}Shift+Del`} onClick={act('burn')} />
       <Row label="Settings" hint={`${mod},`} onClick={act('settings')} />
     </div>
   )

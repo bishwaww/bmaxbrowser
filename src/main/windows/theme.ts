@@ -7,6 +7,7 @@ export interface ChromeColors {
   symbol: string
 }
 
-export function chromeColors(dark: boolean): ChromeColors {
+export function chromeColors(dark: boolean, tor = false): ChromeColors {
+  if (tor) return { strip: '#2d1950', symbol: '#eadcff' }
   return dark ? { strip: '#202124', symbol: '#e8eaed' } : { strip: '#dee1e6', symbol: '#202124' }
 }

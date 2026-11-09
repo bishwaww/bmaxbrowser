@@ -10,6 +10,8 @@ import type {
 export interface PipelineContext {
   /** Session partition name, e.g. 'bmax-private'. */
   partition: string
+  /** Session belongs to a Tor window (strictest rules, fail closed). */
+  tor: boolean
 }
 
 export type BeforeRequestResult = { cancel?: boolean; redirectURL?: string } | void

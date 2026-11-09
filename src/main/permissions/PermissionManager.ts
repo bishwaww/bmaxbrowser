@@ -80,12 +80,15 @@ export class PermissionManager {
     })
   }
 
-  attach(ses: Session): void {
+  /** Tor sessions deny every permission (camera, microphone, location, notifications, …) without asking. */
+  attach(ses: Session, tor = false): void {
     ses.setPermissionRequestHandler((wc, permission, callback, details) => {
+      if (tor) return callback(AUTO_ALLOW.has(permission))
       this.request(wc, permission, callback, details as unknown as { requestingUrl?: string; mediaTypes?: string[] })
     })
     ses.setPermissionCheckHandler((wc, permission, requestingOrigin) => {
       if (AUTO_ALLOW.has(permission)) return true
+      if (tor) return false
       const info = wc ? registry.get(wc.id) : undefined
       const partition = info?.role === 'tab' ? info.tab.partition : 'unknown'
       const probe = permission === 'media' ? ['media:video', 'media:audio', 'media:video+audio'] : [permission]

@@ -42,7 +42,10 @@ export default defineConfig({
           overlay: resolve(__dirname, 'src/renderer/overlay/index.html'),
           newtab: resolve(__dirname, 'src/renderer/newtab/index.html'),
           settings: resolve(__dirname, 'src/renderer/settings/index.html'),
-          error: resolve(__dirname, 'src/renderer/error/index.html')
+          error: resolve(__dirname, 'src/renderer/error/index.html'),
+          warning: resolve(__dirname, 'src/renderer/warning/index.html'),
+          tor: resolve(__dirname, 'src/renderer/tor/index.html'),
+          bookmarks: resolve(__dirname, 'src/renderer/bookmarks/index.html')
         }
       }
     }

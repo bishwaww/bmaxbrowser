@@ -132,3 +132,22 @@ export const IconCamera = (p: P) => (
     <circle cx="12" cy="13" r="3.5" />
   </Svg>
 )
+export const IconFlame = (p: P) => (
+  <Svg {...p}>
+    <path d="M12 2c1 4-3 5-3 9a3 3 0 0 0 6 0c0-1-.5-2-1-3 3 1 5 3.5 5 7a7 7 0 0 1-14 0c0-5 5-7 7-13z" />
+  </Svg>
+)
+export const IconStar = (p: P & { filled?: boolean }) => (
+  <Svg {...p} fill={p.filled ? 'currentColor' : 'none'}>
+    <path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z" />
+  </Svg>
+)
+export const IconCircuit = (p: P) => (
+  <Svg {...p}>
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="12" cy="6" r="2" />
+    <circle cx="19" cy="12" r="2" />
+    <circle cx="12" cy="18" r="2" />
+    <path d="M7 11l3-4M14 7l3 4M17.5 13.5 14 17M10 17l-3.5-3.5" />
+  </Svg>
+)

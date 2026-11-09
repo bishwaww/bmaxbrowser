@@ -5,6 +5,9 @@ import type { Settings } from '@shared/settings'
 import type { OverlayKind, SuggestionItem, TabInfo, WindowState } from '@shared/types'
 import {
   IconBack,
+  IconCircuit,
+  IconFlame,
+  IconStar,
   IconForward,
   IconHome,
   IconLock,
@@ -285,6 +288,26 @@ export function Toolbar({
         )}
       </div>
 
+      {tab && /^https?:\/\//i.test(tab.url) && (
+        <button
+          className="icon-btn"
+          title={tab.bookmarked ? 'Remove bookmark (Ctrl+D)' : 'Bookmark this page (Ctrl+D)'}
+          aria-label="Bookmark this page"
+          style={{ color: tab.bookmarked ? 'var(--accent)' : undefined }}
+          onClick={() => void window.bmax.cmd('window.action', { name: 'bookmarkPage' })}
+        >
+          <IconStar filled={tab.bookmarked} />
+        </button>
+      )}
+      {state.tor && <TorControls />}
+      <button
+        className="icon-btn"
+        title="Burn: wipe all browsing data and close everything (Ctrl+Shift+Del)"
+        aria-label="Burn all browsing data"
+        onClick={() => void window.bmax.cmd('window.action', { name: 'burn' })}
+      >
+        <IconFlame />
+      </button>
       <MenuButton state={state} toggleOverlay={toggleOverlay} />
 
       {loading && tab && (
@@ -294,6 +317,38 @@ export function Toolbar({
         />
       )}
     </div>
+  )
+}
+
+function TorControls() {
+  const [ready, setReady] = useState(false)
+  const [busy, setBusy] = useState(false)
+  useEffect(() => {
+    void window.bmax.cmd('tor.status').then((s) => setReady(s.status === 'ready'))
+    return window.bmax.onPush((m) => m.type === 'tor-status' && setReady(m.state.status === 'ready'))
+  }, [])
+  return (
+    <>
+      <span
+        className="rounded-full px-2 text-xs font-semibold"
+        style={{ background: 'var(--accent)', color: 'var(--on-accent)', height: 20, lineHeight: '20px' }}
+        title="This window routes all traffic through the Tor network"
+      >
+        TOR
+      </span>
+      <button
+        className="icon-btn"
+        disabled={!ready || busy}
+        title="New Tor circuit for this site"
+        aria-label="New Tor circuit for this site"
+        onClick={() => {
+          setBusy(true)
+          void window.bmax.cmd('tor.newCircuit').finally(() => setBusy(false))
+        }}
+      >
+        <IconCircuit />
+      </button>
+    </>
   )
 }
 

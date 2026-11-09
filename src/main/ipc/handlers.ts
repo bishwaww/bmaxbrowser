@@ -1,4 +1,8 @@
-import { Menu, nativeTheme } from 'electron'
+import { dialog, Menu, nativeTheme } from 'electron'
+import { readFile } from 'node:fs/promises'
+import { parseBookmarksHtml } from '@shared/bookmarks-import'
+import { internalUrl } from '@shared/internal'
+import { allowHttp } from '../net/privacy-handlers'
 import { resolveOmnibox } from '@shared/omnibox'
 import { services } from '../services'
 import type { Tab } from '../tabs/Tab'
@@ -13,6 +17,11 @@ export function createHandlers(): Handlers {
     'tab.new': (a, { window }) => {
       window.openTab(a?.url ? resolveOmnibox(a.url, services.settings.get().searchEngine).url : services.settings.get().homepage, {
         background: a?.background
+      })
+    },
+    'tab.newContainer': (a, { window }) => {
+      window.openTab(a?.url ? resolveOmnibox(a.url, services.settings.get().searchEngine).url : internalUrl('newtab'), {
+        partition: services.sessions.newContainerPartition()
       })
     },
     'tab.close': (a, ctx) => {
@@ -107,7 +116,61 @@ export function createHandlers(): Handlers {
     'settings.get': () => services.settings.get(),
     'settings.update': (patch) => services.settings.update(patch),
     'stats.get': () => services.stats.get(),
-    'theme.get': () => (nativeTheme.shouldUseDarkColors ? 'dark' : 'light'),
+    'theme.get': (_a, { window }) => (window.tor ? 'tor' : nativeTheme.shouldUseDarkColors ? 'dark' : 'light'),
+    'warning.proceedHttp': (a, { tab }) => {
+      if (!tab) return
+      let host: string
+      try {
+        host = new URL(a.url).hostname
+      } catch {
+        return
+      }
+      if (!/^http:/i.test(a.url)) return
+      allowHttp(tab.partition, host)
+      tab.loadUrl(a.url)
+    },
+    'tor.status': () => services.tor.state(),
+    'tor.retry': () => {
+      services.tor.stop()
+      void services.tor.start()
+    },
+    'tor.newCircuit': async (_a, { window }) => {
+      const ok = await services.tor.newCircuit()
+      if (ok && window.activeTab) {
+        // Drop open connections so the site is re-fetched over a fresh circuit.
+        await window.activeTab.session.closeAllConnections()
+        window.activeTab.reload(true)
+      }
+      return ok
+    },
+    'vault.status': () => services.vault.status(),
+    'vault.create': ({ password }) => services.vault.create(password),
+    'vault.unlock': ({ password }) => services.vault.unlock(password),
+    'vault.lock': () => services.vault.lock(),
+    'vault.destroy': ({ password }) => services.vault.destroy(password),
+    'bookmarks.list': () => services.vault.bookmarks(),
+    'bookmarks.add': (a) => services.vault.addBookmark(a),
+    'bookmarks.remove': (a) => services.vault.removeBookmark(a.id),
+    'bookmarks.import': async (_a, { window }) => {
+      const res = await dialog.showOpenDialog(window.base, {
+        title: 'Import bookmarks (HTML file)',
+        properties: ['openFile'],
+        filters: [{ name: 'Bookmarks HTML', extensions: ['html', 'htm'] }]
+      })
+      const file = res.filePaths[0]
+      if (res.canceled || !file) return { added: 0 }
+      try {
+        const html = await readFile(file, 'utf8')
+        if (html.length > 30_000_000) return { added: 0, error: 'That file is too large.' }
+        return { added: services.vault.importBookmarks(parseBookmarksHtml(html)) }
+      } catch (err) {
+        return { added: 0, error: err instanceof Error ? err.message : 'Could not read the file.' }
+      }
+    },
+    'passwords.list': () => services.vault.passwords(),
+    'passwords.save': (a) => services.vault.savePassword(a),
+    'passwords.remove': (a) => services.vault.removePassword(a.id),
+    'passwords.reveal': (a) => services.vault.reveal(a.id),
     'page.navigate': (a, { tab }) => {
       if (!tab) return
       tab.loadUrl(resolveOmnibox(a.input, services.settings.get().searchEngine).url)

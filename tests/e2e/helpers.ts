@@ -10,10 +10,10 @@ export interface Harness {
   close(): Promise<void>
 }
 
-export async function launch(extraEnv: Record<string, string> = {}): Promise<Harness> {
+export async function launch(extraEnv: Record<string, string> = {}, extraArgs: string[] = []): Promise<Harness> {
   const userData = mkdtempSync(join(tmpdir(), 'bmax-e2e-'))
   const app = await electron.launch({
-    args: [resolve(__dirname, '../..')],
+    args: [resolve(__dirname, '../..'), ...extraArgs],
     env: { ...(process.env as Record<string, string>), BMAX_TEST: '1', BMAX_USER_DATA: userData, ...extraEnv }
   })
   const logs: string[] = []

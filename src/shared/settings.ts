@@ -9,12 +9,37 @@ export const tileSchema = z.object({
 })
 export type Tile = z.infer<typeof tileSchema>
 
+const dohSchema = z.object({
+  mode: z.enum(['secure', 'off']),
+  provider: z.enum(['quad9', 'cloudflare', 'mullvad', 'nextdns', 'custom']),
+  customUrl: z.string().max(512)
+})
+
+const privacySchema = z.object({
+  httpsOnly: z.boolean(),
+  stripTrackingParams: z.boolean(),
+  blockThirdPartyCookies: z.boolean(),
+  fingerprintProtection: z.boolean(),
+  sendGpc: z.boolean(),
+  uniformUserAgent: z.boolean(),
+  doh: dohSchema
+})
+
+const proxySchema = z.object({
+  enabled: z.boolean(),
+  scheme: z.enum(['socks5', 'http', 'https']),
+  host: z.string().max(253),
+  port: z.number().int().min(0).max(65535)
+})
+
 export const settingsSchema = z.object({
   searchEngine: z.enum(SEARCH_ENGINES.map((e) => e.id) as [string, ...string[]]),
   theme: z.enum(['system', 'light', 'dark']),
   homepage: z.string().max(2048),
   showHomeButton: z.boolean(),
   tiles: z.array(tileSchema).max(24),
+  privacy: privacySchema,
+  proxy: proxySchema,
   permissions: z.object({
     /** What to do when a site asks and there is no stored decision. */
     defaultAction: z.enum(['ask', 'deny']),
@@ -37,6 +62,16 @@ export const DEFAULT_SETTINGS: Settings = {
     { id: 'github', title: 'GitHub', url: 'https://github.com/' },
     { id: 'osm', title: 'OpenStreetMap', url: 'https://www.openstreetmap.org/' }
   ],
+  privacy: {
+    httpsOnly: true,
+    stripTrackingParams: true,
+    blockThirdPartyCookies: true,
+    fingerprintProtection: true,
+    sendGpc: true,
+    uniformUserAgent: true,
+    doh: { mode: 'secure', provider: 'quad9', customUrl: '' }
+  },
+  proxy: { enabled: false, scheme: 'socks5', host: '127.0.0.1', port: 1080 },
   permissions: { defaultAction: 'ask', persist: false }
 }
 

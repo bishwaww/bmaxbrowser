@@ -29,6 +29,12 @@ function layoutTabs(tabs: TabInfo[], avail: number): { x: number; w: number }[] 
   })
 }
 
+function containerHue(label: string): number {
+  let h = 0
+  for (const c of label) h = (h * 31 + c.charCodeAt(0)) % 360
+  return h
+}
+
 function TabIcon({ tab }: { tab: TabInfo }) {
   if (tab.loading) {
     return (
@@ -219,6 +225,13 @@ export function TabStrip({ state }: { state: WindowState }) {
                 }}
               >
                 <TabIcon tab={tab} />
+                {tab.container && !tab.pinned && (
+                  <span
+                    title="Container tab: isolated from other tabs"
+                    className="shrink-0"
+                    style={{ width: 7, height: 7, borderRadius: 4, background: `hsl(${containerHue(tab.container)} 75% 55%)` }}
+                  />
+                )}
                 {!tab.pinned && (
                   <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12, color: active ? 'var(--fg)' : 'var(--muted)' }}>
                     {tab.title}

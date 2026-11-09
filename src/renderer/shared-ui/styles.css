@@ -116,3 +116,21 @@ input {
   outline-offset: -2px;
 }
 }
+
+:root[data-theme='tor'] {
+  --strip: #2d1950;
+  --bar: #3a2063;
+  --fg: #f3eaff;
+  --muted: #c3aeea;
+  --hover: rgba(255, 255, 255, 0.12);
+  --active: rgba(255, 255, 255, 0.2);
+  --border: #5b3a96;
+  --field: #241240;
+  --accent: #c9a6ff;
+  --danger: #ff9aa8;
+  --ok: #8fe3b0;
+  --card: #3a2063;
+  --on-accent: #1d0b3a;
+  --shadow: 0 4px 18px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color-scheme: dark;
+}

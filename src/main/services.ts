@@ -4,6 +4,8 @@ import type { PermissionManager } from './permissions/PermissionManager'
 import type { SessionManager } from './sessions/SessionManager'
 import type { SettingsStore } from './settings/SettingsStore'
 import type { StatsStore } from './settings/StatsStore'
+import type { TorManager } from './tor/TorManager'
+import type { Vault } from './vault/Vault'
 import type { WindowManager } from './windows/WindowManager'
 
 /** Process-wide singletons, populated once in index.ts after app 'ready'. */
@@ -15,6 +17,8 @@ export interface Services {
   permissions: PermissionManager
   sessions: SessionManager
   windows: WindowManager
+  tor: TorManager
+  vault: Vault
 }
 
 export const services = {} as Services

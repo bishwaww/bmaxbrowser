@@ -1,11 +1,15 @@
 import { useState } from 'react'
 import type { ReactNode } from 'react'
+import { DOH_PROVIDERS } from '@shared/privacy'
+import type { DohProviderId } from '@shared/privacy'
 import { SEARCH_ENGINES } from '@shared/search-engines'
-import type { SettingsPatch } from '@shared/settings'
+import type { Settings, SettingsPatch } from '@shared/settings'
 import { useSettings } from '../shared-ui/hooks'
 
-const SECTIONS = ['Appearance', 'Search', 'Privacy & Security', 'About'] as const
+const SECTIONS = ['Appearance', 'Search', 'Privacy & Security', 'Network', 'Tor', 'About'] as const
 type Section = (typeof SECTIONS)[number]
+
+const inputStyle = { background: 'var(--field)', border: '1px solid var(--border)', userSelect: 'text' as const }
 
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -26,7 +30,7 @@ function Radio<T extends string>({
 }: {
   name: string
   value: T
-  options: { value: T; label: string; hint?: string }[]
+  options: { value: T; label: string; hint?: string | undefined }[]
   onChange: (v: T) => void
 }) {
   return (
@@ -50,7 +54,7 @@ function Radio<T extends string>({
 
 function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
   return (
-    <label className="flex items-center justify-between gap-6 py-1">
+    <label className="flex items-center justify-between gap-6 py-1.5">
       <span>
         {label}
         {hint && (
@@ -64,11 +68,121 @@ function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange
   )
 }
 
+function NetworkSection({ settings, update }: { settings: Settings; update: (p: SettingsPatch) => void }) {
+  const doh = settings.privacy.doh
+  const proxy = settings.proxy
+  const setDoh = (patch: Partial<typeof doh>) => update({ privacy: { ...settings.privacy, doh: { ...doh, ...patch } } })
+  const [host, setHost] = useState(proxy.host)
+  const [port, setPort] = useState(String(proxy.port))
+  const [dohCustom, setDohCustom] = useState(doh.customUrl)
+  return (
+    <>
+      <Group title="DNS over HTTPS">
+        <Toggle
+          checked={doh.mode === 'secure'}
+          onChange={(on) => setDoh({ mode: on ? 'secure' : 'off' })}
+          label="Always use secure DNS"
+          hint="Website names are looked up only through the provider below. If it can't be reached, pages fail to load instead of falling back to your ISP's DNS."
+        />
+        {doh.mode === 'secure' && (
+          <div className="mt-3">
+            <Radio<DohProviderId>
+              name="doh"
+              value={doh.provider}
+              onChange={(provider) => setDoh({ provider })}
+              options={(Object.keys(DOH_PROVIDERS) as DohProviderId[]).map((id) => ({ value: id, label: DOH_PROVIDERS[id].name }))}
+            />
+            {(doh.provider === 'nextdns' || doh.provider === 'custom') && (
+              <div className="mt-3 flex gap-2">
+                <input
+                  aria-label={doh.provider === 'nextdns' ? 'NextDNS profile ID' : 'DoH server URL'}
+                  placeholder={doh.provider === 'nextdns' ? 'NextDNS profile ID (e.g. abc123)' : 'https://dns.example/dns-query'}
+                  value={dohCustom}
+                  onChange={(e) => setDohCustom(e.target.value)}
+                  className="min-w-0 flex-1 rounded-md px-3 py-2"
+                  style={inputStyle}
+                />
+                <button className="rounded-full px-4" style={{ border: '1px solid var(--border)' }} onClick={() => setDoh({ customUrl: dohCustom })}>
+                  Save
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Group>
+
+      <Group title="Proxy / VPN (normal windows)">
+        <Toggle
+          checked={proxy.enabled}
+          onChange={(enabled) => update({ proxy: { ...proxy, enabled } })}
+          label="Route normal windows through a proxy"
+          hint="If the proxy is down or misconfigured, pages fail to load; they never fall back to a direct connection. Tor windows ignore this setting."
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <select
+            aria-label="Proxy type"
+            value={proxy.scheme}
+            onChange={(e) => update({ proxy: { ...proxy, scheme: e.target.value as Settings['proxy']['scheme'] } })}
+            className="rounded-md px-2 py-2"
+            style={inputStyle}
+          >
+            <option value="socks5">SOCKS5</option>
+            <option value="http">HTTP</option>
+            <option value="https">HTTPS</option>
+          </select>
+          <input aria-label="Proxy host" value={host} onChange={(e) => setHost(e.target.value)} className="w-56 rounded-md px-3 py-2" style={inputStyle} />
+          <input aria-label="Proxy port" value={port} onChange={(e) => setPort(e.target.value)} className="w-24 rounded-md px-3 py-2" style={inputStyle} />
+          <button
+            className="rounded-full px-4 py-2"
+            style={{ border: '1px solid var(--border)' }}
+            onClick={() => {
+              const p = Number(port)
+              if (Number.isInteger(p) && p >= 1 && p <= 65535) update({ proxy: { ...proxy, host: host.trim(), port: p } })
+            }}
+          >
+            Apply
+          </button>
+        </div>
+      </Group>
+    </>
+  )
+}
+
+function TorSection() {
+  return (
+    <>
+      <Group title="Tor windows">
+        <p className="mb-3">
+          Open a Tor window with <strong>Ctrl+Alt+N</strong> (or from the menu). Everything in that window goes through the Tor network, and no page loads until
+          Tor is fully connected.
+        </p>
+        <button
+          className="rounded-full px-5 py-2"
+          style={{ background: 'var(--accent)', color: 'var(--on-accent)' }}
+          onClick={() => void window.bmax.cmd('window.action', { name: 'newTorWindow' })}
+        >
+          Open a Tor window
+        </button>
+      </Group>
+      <Group title="What Tor mode does, and does not, do">
+        <ul className="list-disc space-y-1 pl-5" style={{ color: 'var(--muted)' }}>
+          <li>Hides your IP address from the sites you visit and your local network from them.</li>
+          <li>Looks up website names through Tor (no DNS leaks), disables WebRTC, denies all permission requests, and upgrades to HTTPS.</li>
+          <li>Does not make this browser look the same as every other Tor Browser user. For the strongest anonymity, use the official Tor Browser.</li>
+          <li>Torrents and torrent downloads are disabled in Tor windows. Torrent traffic is never routed through Tor.</li>
+          <li>&ldquo;New Tor circuit&rdquo; asks Tor for fresh circuits for all Tor windows, then reloads the current page.</li>
+        </ul>
+      </Group>
+    </>
+  )
+}
+
 export function App() {
   const settings = useSettings()
   const [section, setSection] = useState<Section>('Appearance')
   if (!settings) return null
   const update = (patch: SettingsPatch) => void window.bmax.cmd('settings.update', patch)
+  const setPrivacy = (patch: Partial<Settings['privacy']>) => update({ privacy: { ...settings.privacy, ...patch } })
 
   return (
     <div className="flex h-full" style={{ background: 'var(--field)', userSelect: 'text' }}>
@@ -86,7 +200,7 @@ export function App() {
           </button>
         ))}
       </nav>
-      <main className="min-w-0 flex-1 overflow-y-auto p-8" style={{ maxWidth: 720 }}>
+      <main className="min-w-0 flex-1 overflow-y-auto p-8" style={{ maxWidth: 760 }}>
         <h1 className="mb-6 text-xl font-semibold">{section}</h1>
 
         {section === 'Appearance' && (
@@ -126,6 +240,44 @@ export function App() {
 
         {section === 'Privacy & Security' && (
           <>
+            <Group title="Protections">
+              <Toggle
+                checked={settings.privacy.httpsOnly}
+                onChange={(httpsOnly) => setPrivacy({ httpsOnly })}
+                label="HTTPS-Only mode"
+                hint="Upgrades every request to HTTPS and shows a warning before ever loading a site over HTTP."
+              />
+              <Toggle
+                checked={settings.privacy.blockThirdPartyCookies}
+                onChange={(blockThirdPartyCookies) => setPrivacy({ blockThirdPartyCookies })}
+                label="Block third-party cookies"
+                hint="Embedded content from other sites can't set or read cookies. Storage is also partitioned per site."
+              />
+              <Toggle
+                checked={settings.privacy.stripTrackingParams}
+                onChange={(stripTrackingParams) => setPrivacy({ stripTrackingParams })}
+                label="Remove tracking parameters from links"
+                hint="Strips utm_*, fbclid, gclid, mc_eid, igshid and similar from the addresses you open."
+              />
+              <Toggle
+                checked={settings.privacy.fingerprintProtection}
+                onChange={(fingerprintProtection) => setPrivacy({ fingerprintProtection })}
+                label="Fingerprinting protection"
+                hint="Adds per-site noise to canvas, WebGL and audio, and limits what sites can learn about your device. A few sites may misbehave."
+              />
+              <Toggle
+                checked={settings.privacy.uniformUserAgent}
+                onChange={(uniformUserAgent) => setPrivacy({ uniformUserAgent })}
+                label="Uniform browser identity"
+                hint="Reports a common Chrome user agent, minimal client hints and English language settings."
+              />
+              <Toggle
+                checked={settings.privacy.sendGpc}
+                onChange={(sendGpc) => setPrivacy({ sendGpc })}
+                label="Send Global Privacy Control"
+                hint="Tells sites not to sell or share your data. (BMAX never sends Do Not Track.)"
+              />
+            </Group>
             <Group title="Site permissions (camera, microphone, location, notifications)">
               <Radio
                 name="perm"
@@ -142,18 +294,42 @@ export function App() {
                 checked={settings.permissions.persist}
                 onChange={(persist) => update({ permissions: { ...settings.permissions, persist } })}
                 label="Remember site permission decisions after BMAX closes"
-                hint="Off by default: decisions are forgotten when the browser closes. Turning this off also deletes the saved file."
+                hint="Off by default. Turning this off also deletes the saved file."
               />
             </Group>
-            <p className="text-xs" style={{ color: 'var(--muted)' }}>
-              BMAX keeps no history, cookies or cache on disk. More privacy controls arrive in the next phase.
-            </p>
+            <Group title="Bookmarks & passwords">
+              <p className="mb-3" style={{ color: 'var(--muted)' }}>
+                Off until you set up the local encrypted vault.
+              </p>
+              <button
+                className="rounded-full px-4 py-2"
+                style={{ border: '1px solid var(--border)' }}
+                onClick={() => void window.bmax.cmd('page.navigate', { input: 'bmax://bookmarks' })}
+              >
+                Open bookmarks &amp; passwords
+              </button>
+            </Group>
+            <Group title="Burn">
+              <p className="mb-3" style={{ color: 'var(--muted)' }}>
+                Instantly wipes all cookies, storage and cache, closes every tab and window, and locks the vault.
+              </p>
+              <button
+                className="rounded-full px-4 py-2"
+                style={{ border: '1px solid var(--danger)', color: 'var(--danger)' }}
+                onClick={() => void window.bmax.cmd('window.action', { name: 'burn' })}
+              >
+                Burn all browsing data
+              </button>
+            </Group>
           </>
         )}
 
+        {section === 'Network' && <NetworkSection settings={settings} update={update} />}
+        {section === 'Tor' && <TorSection />}
+
         {section === 'About' && (
           <Group title="BMAX Browser">
-            <p>Version 0.1.0 (development)</p>
+            <p>Version 0.2.0 (development)</p>
             <p className="mt-2 text-xs" style={{ color: 'var(--muted)' }}>
               A privacy-first browser. No telemetry, no analytics, no crash reporting.
             </p>

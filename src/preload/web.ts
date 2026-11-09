@@ -1,17 +1,20 @@
 /**
  * Registered on every frame of every tab (session.registerPreloadScript, type 'frame').
  * - bmax:// pages (internal UI) get the typed API.
- * - Everything else gets privacy hardening injected into the page's main world (Phase 2 fleshes this out).
+ * - http(s) pages get privacy hardening injected into the page's main world before any page script runs.
  */
-import { webFrame } from 'electron'
+import { ipcRenderer, webFrame } from 'electron'
 import { exposeBmaxApi } from './bridge'
+import { inject } from './fingerprint'
+import type { WebConfig } from './fingerprint'
 
 if (location.protocol === 'bmax:' || (import.meta.env.DEV && location.origin === 'http://localhost:5173')) {
   // The second condition exists only in dev builds (Vite dev server); main re-checks the URL on every call.
   exposeBmaxApi()
-} else if (location.protocol === 'http:' || location.protocol === 'https:') {
-  // Spike (c): prove main-world injection works at document start in every frame (incl. iframes).
-  void webFrame.executeJavaScript(
-    `(() => { try { Object.defineProperty(Navigator.prototype, 'hardwareConcurrency', { get: () => 4, configurable: true }); } catch (e) {} })()`
-  )
+} else if (location.protocol === 'http:' || location.protocol === 'https:' || location.protocol === 'about:') {
+  // The seed/settings are decided by main (it knows the session secret and top-level site).
+  const cfg = ipcRenderer.sendSync('bmax:web-config') as WebConfig | null
+  if (cfg) {
+    void webFrame.executeJavaScript(`(${inject.toString()})(${JSON.stringify(cfg)})`)
+  }
 }

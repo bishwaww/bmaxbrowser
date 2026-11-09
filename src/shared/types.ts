@@ -15,6 +15,10 @@ export interface TabInfo {
   audible: boolean
   security: SecurityLevel
   isNewTab: boolean
+  /** Short id of the tab's container (isolated session), or null for the shared private session. */
+  container: string | null
+  /** Current URL is in the (unlocked) bookmarks vault. */
+  bookmarked: boolean
 }
 
 export interface WindowState {
@@ -28,9 +32,11 @@ export interface WindowState {
   zoomPercent: number
   /** Window uses its own isolated session (Ctrl+Shift+N). */
   isolated: boolean
-  /** Resolved light/dark for the UI. */
-  theme: 'light' | 'dark'
+  /** Resolved theme for the UI ('tor' = purple Tor window). */
+  theme: 'light' | 'dark' | 'tor'
   showHomeButton: boolean
+  /** Tor window: purple theme, strict settings, fail-closed networking. */
+  tor: boolean
 }
 
 export interface CertInfo {
@@ -63,4 +69,12 @@ export interface SuggestionItem {
   text: string
   url: string
   tabId?: number
+}
+
+export interface TorState {
+  status: 'stopped' | 'starting' | 'ready' | 'failed' | 'missing'
+  /** Bootstrap progress 0..100. */
+  progress: number
+  summary: string
+  error?: string | undefined
 }

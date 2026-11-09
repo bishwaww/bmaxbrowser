@@ -11,7 +11,7 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
 ## Layout
 - `src/main` — everything privileged (windows, tabs, sessions, net pipeline, privacy, shields, tor, downloads, torrents, vault)
 - `src/preload` — `chrome.ts` (browser UI + overlays), `web.ts` (registered on every tab frame: exposes the bmax API only when location is bmax://, otherwise fingerprint protections)
-- `src/renderer` — React UIs, one Vite entry each: chrome, overlay, newtab, settings, error
+- `src/renderer` — React UIs, one Vite entry each: chrome, overlay, newtab, settings, error, warning, tor, bookmarks
 - `src/shared` — types, IPC channel map + zod schemas, pure logic (omnibox parser, url utils). No Electron imports.
 - `resources/` — bundled binaries (tor, yt-dlp, ffmpeg), filters, icons; `resources/bin/CHECKSUMS.md` pins hashes
 - `tests/unit` (Vitest) · `tests/e2e` (Playwright)
@@ -31,7 +31,10 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
 - [x] Plan approved
 - [x] Phase 0 scaffold; spike (c) main-world injection OK (needs nodeIntegrationInSubFrames:true for iframes); spike (a) titlebar drag/overlay still needs a visual check on an unlocked desktop; spike (b) Ghostery-in-pipeline deferred to the start of Phase 3
 - [x] Phase 1 Core browser (18 e2e + 18 unit tests green). Open items: spellcheck dictionary not bundled yet; sites do not get prefers-color-scheme dark (WebContentsView does not track nativeTheme; try CDP Emulation.setEmulatedMedia in Phase 6)
-- [ ] Phase 2 Privacy engine
+- [x] Phase 2 Privacy engine (47 e2e + 35 unit tests green). Real Tor binary NOT installed yet (see docs/BINARIES.md); e2e uses tests/e2e/fake-tor.cjs. Not yet verified on a real network: DoH providers, real Tor circuits. Known gaps: fingerprint noise does not reach Web Workers; font enumeration only partly mitigated; no password autofill (manual copy only); Tor uses one shared SocksPort (NEWNYM is global); Chromium has no SOCKS-auth stream isolation.
+  - Privacy request logic lives in `net/privacy-handlers.ts` (pipeline handlers); per-frame fingerprint config via sync IPC `bmax:web-config` (`privacy/web-config.ts`) → `preload/fingerprint.ts` (stringified, runs in main world).
+  - Sessions: `bmax-private` (shared), `bmax-ctr-*` containers, `bmax-iso-*` isolated windows, `bmax-tor-*` Tor windows; ephemeral ones are wiped when their last tab closes (`SessionManager.release`). Burn = `WindowManager.burn()`.
+  - New internal pages: warning (HTTPS-Only), tor (bootstrap progress), bookmarks (vault UI).
 - [ ] Phase 3 Shields
 - [ ] Phase 4 Media downloader
 - [ ] Phase 5 Torrents
