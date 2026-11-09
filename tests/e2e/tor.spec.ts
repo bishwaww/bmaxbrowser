@@ -143,7 +143,7 @@ test.describe('Tor window (fake tor binary)', () => {
 
 test.describe('Tor window without a Tor binary', () => {
   test('shows an explanation and stays fail-closed', async () => {
-    const h = await launch()
+    const h = await launch({ BMAX_TOR_NOBIN: '1' })
     try {
       await inMain(h.app, 'await s.windows.createTor()')
       await sleep(1500)

@@ -59,6 +59,7 @@ app.on('window-all-closed', () => app.quit())
 app.on('before-quit', () => {
   services.settings?.flush()
   services.stats?.flush()
+  services.tor?.shutdown()
 })
 
 void app.whenReady().then(async () => {

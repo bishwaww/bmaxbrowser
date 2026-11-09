@@ -2,13 +2,33 @@ import { app } from 'electron'
 import { spawn } from 'node:child_process'
 import type { ChildProcess } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { connect, createServer } from 'node:net'
 import { join } from 'node:path'
 import type { TorState } from '@shared/types'
 import { resourcePath } from '../app/paths'
 
 const BOOTSTRAP_RE = /Bootstrapped (\d+)%(?: \(([^)]*)\))?: (.*)/
+
+/** Remove state directories left behind by a previous run that was killed (their owner pid is gone). */
+function sweepStaleDirs(): void {
+  try {
+    const tmp = app.getPath('temp')
+    for (const name of readdirSync(tmp)) {
+      const m = /^bmax-tor-(\d+)-/.exec(name)
+      if (!m || Number(m[1]) === process.pid) continue
+      try {
+        process.kill(Number(m[1]), 0)
+        continue // owner still running
+      } catch {
+        /* owner is gone */
+      }
+      rmSync(join(tmp, name), { recursive: true, force: true })
+    }
+  } catch {
+    /* best effort */
+  }
+}
 
 function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -21,10 +41,10 @@ function freePort(): Promise<number> {
   })
 }
 
-/** Where the bundled official Tor expert bundle lives: resources/bin/tor/<platform>-<arch>/tor(.exe) */
+/** Official Tor expert bundle, extracted as-is: resources/bin/tor/<platform>-<arch>/{tor/tor(.exe), data/geoip*} */
 export function torBinaryPath(): string | null {
   const exe = process.platform === 'win32' ? 'tor.exe' : 'tor'
-  const p = resourcePath('bin', 'tor', `${process.platform}-${process.arch}`, exe)
+  const p = resourcePath('bin', 'tor', `${process.platform}-${process.arch}`, 'tor', exe)
   return existsSync(p) ? p : null
 }
 
@@ -70,7 +90,8 @@ export class TorManager extends EventEmitter {
 
   private async doStart(): Promise<void> {
     const fake = process.env['BMAX_TEST'] === '1' ? process.env['BMAX_TOR_FAKE'] : undefined
-    const bin = fake ? process.execPath : torBinaryPath()
+    const noBin = process.env['BMAX_TEST'] === '1' && process.env['BMAX_TOR_NOBIN'] === '1' // test hook: simulate a missing binary
+    const bin = fake ? process.execPath : noBin ? null : torBinaryPath()
     if (!bin) {
       this.set({
         status: 'missing',
@@ -80,6 +101,7 @@ export class TorManager extends EventEmitter {
       })
       return
     }
+    sweepStaleDirs()
     await this.reservePort()
     this.control = await freePort()
     this.dir = join(app.getPath('temp'), `bmax-tor-${process.pid}-${Date.now().toString(36)}`)
@@ -143,7 +165,7 @@ export class TorManager extends EventEmitter {
   }
 
   private geoipArgs(bin: string): string[] {
-    const data = join(bin, '..', 'data')
+    const data = join(bin, '..', '..', 'data')
     const out: string[] = []
     if (existsSync(join(data, 'geoip'))) out.push('--GeoIPFile', join(data, 'geoip'))
     if (existsSync(join(data, 'geoip6'))) out.push('--GeoIPv6File', join(data, 'geoip6'))
@@ -200,6 +222,19 @@ export class TorManager extends EventEmitter {
         resolve(replies)
       })
     })
+  }
+
+  /** App is quitting: kill Tor and delete its state directory right now (no timers survive a quit). */
+  shutdown(): void {
+    const dir = this.dir
+    this.stop()
+    if (dir) {
+      try {
+        rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 })
+      } catch {
+        /* swept on the next start */
+      }
+    }
   }
 
   stop(): void {
