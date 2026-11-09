@@ -455,6 +455,11 @@ export class DownloadManager extends EventEmitter {
   onWillDownload(item: DownloadItem, wc: WebContents | null): void {
     const info = wc ? registry.get(wc.id) : undefined
     const viaTor = info?.role === 'tab' ? info.tab.window.tor : false
+    // .torrent files are not saved: they open in the torrent manager (and are refused in Tor windows).
+    if (/\.torrent$/i.test(item.getFilename()) || item.getMimeType() === 'application/x-bittorrent') {
+      services.torrents.interceptTorrentDownload(item, info?.role === 'tab' ? info.tab : null)
+      return
+    }
     const name = sanitizeFileName(item.getFilename(), 'download')
     const job = this.newJob('file', name, item.getURL(), viaTor)
     job.state = 'starting'

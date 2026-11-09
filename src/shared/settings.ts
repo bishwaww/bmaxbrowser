@@ -53,6 +53,23 @@ const downloadsSchema = z.object({
   maxConcurrent: z.number().int().min(1).max(8)
 })
 
+const torrentsSchema = z.object({
+  /** Absolute folder; empty = Downloads/Torrents. */
+  folder: z.string().max(1024),
+  /** KiB/s, 0 = unlimited */
+  downKBps: z.number().int().min(0).max(10_000_000),
+  upKBps: z.number().int().min(0).max(10_000_000),
+  maxConnections: z.number().int().min(5).max(1000),
+  stopSeedingWhenDone: z.boolean(),
+  /** Show the file list and wait for the user's choice before downloading. */
+  askFiles: z.boolean(),
+  dht: z.boolean(),
+  /** Local-network peer discovery (announces on the LAN). */
+  lsd: z.boolean(),
+  /** Ask the router to open a port (UPnP / NAT-PMP). */
+  upnp: z.boolean()
+})
+
 export const settingsSchema = z.object({
   searchEngine: z.enum(SEARCH_ENGINES.map((e) => e.id) as [string, ...string[]]),
   theme: z.enum(['system', 'light', 'dark']),
@@ -62,6 +79,7 @@ export const settingsSchema = z.object({
   privacy: privacySchema,
   shields: shieldsSchema,
   downloads: downloadsSchema,
+  torrents: torrentsSchema,
   proxy: proxySchema,
   permissions: z.object({
     /** What to do when a site asks and there is no stored decision. */
@@ -105,6 +123,7 @@ export const DEFAULT_SETTINGS: Settings = {
     disabledSites: []
   },
   downloads: { folder: '', askWhere: false, autoUpdateYtdlp: true, maxConcurrent: 3 },
+  torrents: { folder: '', downKBps: 0, upKBps: 0, maxConnections: 55, stopSeedingWhenDone: false, askFiles: true, dht: true, lsd: false, upnp: false },
   proxy: { enabled: false, scheme: 'socks5', host: '127.0.0.1', port: 1080 },
   permissions: { defaultAction: 'ask', persist: false }
 }

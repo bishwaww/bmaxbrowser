@@ -2,6 +2,7 @@ import { BaseWindow, dialog, nativeTheme, WebContentsView } from 'electron'
 import type { Rectangle } from 'electron'
 import { writeFile } from 'node:fs/promises'
 import { internalUrl } from '@shared/internal'
+import type { InternalPage } from '@shared/internal'
 import { IPC_PUSH } from '@shared/ipc'
 import type { PushMessage } from '@shared/ipc'
 import { resolveOmnibox } from '@shared/omnibox'
@@ -478,6 +479,13 @@ export class BmaxWindow {
           if (t) this.activate(t)
         }
     }
+  }
+
+  /** Open an internal page in a tab, reusing an existing tab on that page. */
+  openInternal(page: InternalPage): void {
+    const existing = this.tabs.find((t) => internalPageOf(t.wc.getURL()) === page)
+    if (existing) this.activate(existing)
+    else this.openTab(internalUrl(page))
   }
 
   private toggleBookmark(): void {

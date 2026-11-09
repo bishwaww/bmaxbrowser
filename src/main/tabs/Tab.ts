@@ -317,6 +317,12 @@ export class Tab {
     wc.on('will-frame-navigate', (event) => {
       const target = event.url
       const fromInternal = isTrustedInternalUrl(wc.getURL())
+      if (/^magnet:/i.test(target)) {
+        // magnet links open the built-in torrent manager, but only right after a user gesture (no scripted spam).
+        event.preventDefault()
+        if (event.isMainFrame && Date.now() - this.lastGestureAt < 3000) void services.torrents.handleMagnet(target, this)
+        return
+      }
       if (!isBrowserHandledUrl(target)) {
         event.preventDefault()
         if (event.isMainFrame) void confirmAndOpenExternal(target, this.window.base)
@@ -337,6 +343,10 @@ export class Tab {
     wc.setWindowOpenHandler((details) => {
       const target = details.url
       if (isTrustedInternalUrl(wc.getURL())) return { action: 'deny' }
+      if (/^magnet:/i.test(target)) {
+        if (Date.now() - this.lastGestureAt < 3000) void services.torrents.handleMagnet(target, this)
+        return { action: 'deny' }
+      }
       if (!isBrowserHandledUrl(target)) {
         void confirmAndOpenExternal(target, this.window.base)
         return { action: 'deny' }

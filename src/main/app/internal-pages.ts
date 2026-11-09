@@ -10,6 +10,11 @@ import type { InternalPage } from '@shared/internal'
 export const DEV_URL: string | null = !app.isPackaged ? (process.env['ELECTRON_RENDERER_URL'] ?? null) : null
 const RENDERER_ROOT = resolve(join(__dirname, '../renderer'))
 
+/** Per-page CSP: only the torrent manager may play media, and only from the loopback streaming server. */
+export function cspFor(page: InternalPage): string {
+  return page === 'torrents' ? `${CSP}; media-src http://127.0.0.1:*` : CSP
+}
+
 export const CSP = [
   "default-src 'none'",
   "script-src 'self'",
@@ -69,10 +74,10 @@ export function internalPageOf(url: string): InternalPage | null {
   return parseInternalUrl(toLogicalUrl(url))?.page ?? null
 }
 
-function secureHeaders(contentType: string): Headers {
+function secureHeaders(contentType: string, page: InternalPage): Headers {
   const h = new Headers()
   h.set('content-type', contentType)
-  h.set('content-security-policy', CSP)
+  h.set('content-security-policy', cspFor(page))
   h.set('x-content-type-options', 'nosniff')
   h.set('cache-control', 'no-store')
   h.set('referrer-policy', 'no-referrer')
@@ -96,7 +101,7 @@ export function registerInternalProtocol(ses: Session): void {
       const upstream = await net.fetch(pathToFileURL(file).toString(), { bypassCustomProtocolHandlers: true })
       return new Response(upstream.body, {
         status: 200,
-        headers: secureHeaders(MIME[extname(file).toLowerCase()] ?? 'application/octet-stream')
+        headers: secureHeaders(MIME[extname(file).toLowerCase()] ?? 'application/octet-stream', page)
       })
     } catch {
       return new Response('Internal error', { status: 500 })

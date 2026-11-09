@@ -230,6 +230,40 @@ export function createHandlers(): Handlers {
     },
     'downloads.tools': async () => ({ ytdlp: await ytdlpStatus(), ffmpeg: await ffmpegStatus() }),
     'downloads.updateYtdlp': (_a, { window }) => services.downloads.updateYtdlp(window.activeTab),
+    'torrents.list': (_a, { window }) => ({ torrents: services.torrents.torrents(), status: services.torrents.status(window) }),
+    'torrents.addMagnet': async (a, { window }) => ({ id: (await services.torrents.addMagnet(a.uri, window))?.id ?? null }),
+    'torrents.addFile': async (_a, { window }) => ({ id: (await services.torrents.chooseAndAddFile(window))?.id ?? null }),
+    'torrents.start': async (a, { window }) => {
+      services.torrents.assertAllowed(window)
+      await services.torrents.start(a.id, a.files)
+    },
+    'torrents.setFiles': async (a, { window }) => {
+      services.torrents.assertAllowed(window)
+      await services.torrents.setFiles(a.id, a.files)
+    },
+    'torrents.action': async (a, { window }) => {
+      services.torrents.assertAllowed(window)
+      if (a.action === 'open') services.torrents.openPath(a.id, a.file ?? null, false)
+      else if (a.action === 'show') services.torrents.openPath(a.id, a.file ?? null, true)
+      else await services.torrents.action(a.id, a.action)
+    },
+    'torrents.stream': async (a, { window }) => {
+      services.torrents.assertAllowed(window)
+      return services.torrents.stream(a.id, a.file)
+    },
+    'torrents.clear': async (_a, { window }) => {
+      services.torrents.assertAllowed(window)
+      await services.torrents.clearFinished()
+    },
+    'torrents.chooseFolder': async (_a, { window }) => {
+      services.torrents.assertAllowed(window)
+      const res = await dialog.showOpenDialog(window.base, { title: 'Choose torrent download folder', properties: ['openDirectory', 'createDirectory'] })
+      return res.canceled ? null : (res.filePaths[0] ?? null)
+    },
+    'torrents.setDefaultHandler': (a, { window }) => {
+      services.torrents.assertAllowed(window)
+      return services.torrents.setDefaultHandler(a.enabled)
+    },
     'page.navigate': (a, { tab }) => {
       if (!tab) return
       tab.loadUrl(resolveOmnibox(a.input, services.settings.get().searchEngine).url)

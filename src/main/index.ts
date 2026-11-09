@@ -20,6 +20,7 @@ import { DownloadManager } from './downloads/DownloadManager'
 import { ensureYtdlp, readToolMeta } from './downloads/tools'
 import { MediaTracker } from './downloads/MediaTracker'
 import { ShieldsManager } from './shields/ShieldsManager'
+import { TorrentManager } from './torrents/TorrentManager'
 import { Vault } from './vault/Vault'
 import { initSpellcheck } from './privacy/spellcheck'
 import { services } from './services'
@@ -44,6 +45,11 @@ function urlFromArgv(argv: string[]): string | undefined {
   return argv.slice(1).find((a) => /^https?:\/\//i.test(a))
 }
 
+/** A magnet link passed by the OS (BMAX registered as the magnet handler) or on the command line. */
+function magnetFromArgv(argv: string[]): string | undefined {
+  return argv.slice(1).find((a) => /^magnet:\?/i.test(a))
+}
+
 app.on('web-contents-created', (_e, wc) => {
   // Defence in depth for every webContents, including DevTools and anything created later.
   wc.on('will-attach-webview', (e) => e.preventDefault())
@@ -52,6 +58,11 @@ app.on('web-contents-created', (_e, wc) => {
 
 app.on('second-instance', (_e, argv) => {
   const url = urlFromArgv(argv)
+  const magnet = magnetFromArgv(argv)
+  if (magnet && services.torrents) {
+    void services.torrents.handleMagnet(magnet, null, services.windows?.focused())
+    return
+  }
   const win = services.windows?.focused()
   if (win && !win.isDisposed) {
     if (win.base.isMinimized()) win.base.restore()
@@ -66,6 +77,7 @@ app.on('before-quit', () => {
   services.settings?.flush()
   services.stats?.flush()
   services.downloads?.reset()
+  services.torrents?.reset()
   services.tor?.shutdown()
 })
 
@@ -86,6 +98,7 @@ void app.whenReady().then(async () => {
   services.shields = new ShieldsManager()
   services.downloads = new DownloadManager()
   services.media = new MediaTracker()
+  services.torrents = new TorrentManager()
   registerPrivacyHandlers(services.pipeline)
   registerWebConfig()
   services.tor = new TorManager()
@@ -145,6 +158,15 @@ void app.whenReady().then(async () => {
       }
     }
   })
+  services.torrents.on('change', () => {
+    for (const w of services.windows.all()) {
+      for (const t of w.tabs) {
+        if (!t.isDestroyed && internalPageOf(t.wc.getURL()) === 'torrents') {
+          t.wc.send(IPC_PUSH, { type: 'torrents', torrents: services.torrents.torrents(), status: services.torrents.status(w) })
+        }
+      }
+    }
+  })
   services.vault.onChange = () => {
     for (const w of services.windows.all()) w.notify()
   }
@@ -162,6 +184,7 @@ void app.whenReady().then(async () => {
   })
   services.settings.on('change', (settings: Settings, prev: Settings) => {
     services.shields.onSettingsChange(prev, settings)
+    services.torrents.onSettingsChange({ ...prev.torrents })
     applyDoh(settings)
     services.sessions.applySettings()
     const themeChanged = nativeTheme.themeSource !== settings.theme
@@ -174,7 +197,9 @@ void app.whenReady().then(async () => {
   // Test hook: only exists when explicitly requested by the e2e harness.
   if (process.env['BMAX_TEST'] === '1') (globalThis as Record<string, unknown>)['__bmax'] = services
 
-  services.windows.create({ url: urlFromArgv(process.argv) })
+  const firstWindow = services.windows.create({ url: urlFromArgv(process.argv) })
+  const startMagnet = magnetFromArgv(process.argv)
+  if (startMagnet) void services.torrents.handleMagnet(startMagnet, null, firstWindow)
   services.shields.init()
   // Keep yt-dlp current (sites change often): one check per day, shortly after startup. Switchable in Settings → Downloads.
   if (process.env['BMAX_TEST'] !== '1') {

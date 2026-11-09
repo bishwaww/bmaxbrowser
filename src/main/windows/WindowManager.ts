@@ -61,6 +61,7 @@ export class WindowManager {
     await services.sessions.burnAll()
     services.permissions.reset()
     services.downloads.reset()
+    services.torrents.reset()
     services.vault.lock()
     this.zoom.clear()
     this.clearClosed()

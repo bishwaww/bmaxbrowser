@@ -7,6 +7,7 @@ import type { StatsStore } from './settings/StatsStore'
 import type { DownloadManager } from './downloads/DownloadManager'
 import type { MediaTracker } from './downloads/MediaTracker'
 import type { ShieldsManager } from './shields/ShieldsManager'
+import type { TorrentManager } from './torrents/TorrentManager'
 import type { TorManager } from './tor/TorManager'
 import type { Vault } from './vault/Vault'
 import type { WindowManager } from './windows/WindowManager'
@@ -24,6 +25,7 @@ export interface Services {
   shields: ShieldsManager
   downloads: DownloadManager
   media: MediaTracker
+  torrents: TorrentManager
   vault: Vault
 }
 

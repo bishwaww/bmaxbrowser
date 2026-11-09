@@ -73,3 +73,17 @@ Browser users (use the official Tor Browser for that).
   the update. A working copy of yt-dlp lives in the app data folder (`bin/`) so it can be updated.
 - Media detection looks at the page in memory (number of `<video>`/`<audio>`/images and media files seen on the network); nothing
   is recorded.
+
+## Torrents
+- **Torrent traffic is NOT private.** It never goes through Tor, ignores the proxy configured in Settings → Network, and is not
+  protected by BMAX's DNS-over-HTTPS setting. Every peer and tracker can see your real IP address and which torrents you share.
+  BMAX shows this warning at the top of the torrent manager, in Settings → Torrents, and in a confirmation dialog the first time
+  you add a torrent after each start (and after Burn). Use an operating-system VPN if you need to hide your address.
+- **Torrents are completely disabled in Tor windows**: the page, every command, magnet links and `.torrent` downloads are refused
+  there and the torrent engine is never started for them.
+- The engine runs in its own sandboxed utility process, never in a web page. By default UPnP/NAT-PMP port mapping and LAN
+  peer discovery are OFF (both are opt-in in Settings → Torrents); the DHT is on because magnet links need it.
+- The torrent list lives in memory only and sharing stops when BMAX closes or you press Burn; the files you downloaded stay in
+  the download folder (default: Downloads/Torrents). Streaming uses a loopback-only server (127.0.0.1) protected by a random
+  per-session token and a Host-header check.
+- Torrent metadata is untrusted: torrents whose file paths could escape the download folder are rejected.

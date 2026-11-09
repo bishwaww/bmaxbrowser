@@ -10,7 +10,7 @@ let srv: TestServer
 
 test.beforeAll(async () => {
   srv = await startServer()
-  h = await launch()
+  h = await launch({ BMAX_SHIELDS_OFFLINE: '1' }) // hermetic: never download real filter lists (their text could contain the test port by chance)
 })
 test.afterAll(async () => {
   await h.close()

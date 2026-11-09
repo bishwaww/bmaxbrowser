@@ -4,6 +4,7 @@ import type { Settings, PrivacyStats } from './settings'
 import type { CertInfo, OverlayKind, Rect, TorState, WindowState } from './types'
 import type { Bookmark, PasswordEntry, VaultStatus } from './vault'
 import type { DownloadJob, ImageSummary, MediaPanelInfo, ProbeResult, ToolStatus } from './downloads'
+import type { TorrentInfo, TorrentsStatus } from './torrents'
 import type { ShieldsListsInfo, ShieldsPanelInfo } from './shields'
 
 export interface VaultResult {
@@ -74,6 +75,16 @@ export const commandSchemas = {
   'stats.get': empty,
   'theme.get': empty,
   'warning.proceedHttp': z.object({ url }),
+  'torrents.list': empty,
+  'torrents.addMagnet': z.object({ uri: z.string().max(4096) }),
+  'torrents.addFile': empty,
+  'torrents.start': z.object({ id: z.string().regex(/^[0-9a-f]{40}$/), files: z.array(z.number().int().min(0).max(100000)).max(100000) }),
+  'torrents.setFiles': z.object({ id: z.string().regex(/^[0-9a-f]{40}$/), files: z.array(z.number().int().min(0).max(100000)).max(100000) }),
+  'torrents.action': z.object({ id: z.string().regex(/^[0-9a-f]{40}$/), action: z.enum(['pause', 'resume', 'remove', 'removeFiles', 'open', 'show']), file: z.number().int().min(0).max(100000).optional() }),
+  'torrents.stream': z.object({ id: z.string().regex(/^[0-9a-f]{40}$/), file: z.number().int().min(0).max(100000) }),
+  'torrents.clear': empty,
+  'torrents.chooseFolder': empty,
+  'torrents.setDefaultHandler': z.object({ enabled: z.boolean() }),
   'media.info': empty,
   'media.probe': z.object({ url: z.string().max(4096) }),
   'media.start': z.object({
@@ -139,6 +150,12 @@ export interface CommandResults {
   'stats.get': PrivacyStats
   'theme.get': 'light' | 'dark' | 'tor'
   'tor.status': TorState
+  'torrents.list': { torrents: TorrentInfo[]; status: TorrentsStatus }
+  'torrents.addMagnet': { id: string | null }
+  'torrents.addFile': { id: string | null }
+  'torrents.stream': { url: string; mime: string }
+  'torrents.chooseFolder': string | null
+  'torrents.setDefaultHandler': boolean
   'media.info': MediaPanelInfo
   'media.probe': ProbeResult
   'media.start': { ids: string[] }
@@ -206,6 +223,16 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'stats.get': P,
   'theme.get': ['chrome', 'overlay', 'page'],
   'warning.proceedHttp': P,
+  'torrents.list': P,
+  'torrents.addMagnet': P,
+  'torrents.addFile': P,
+  'torrents.start': P,
+  'torrents.setFiles': P,
+  'torrents.action': P,
+  'torrents.stream': P,
+  'torrents.clear': P,
+  'torrents.chooseFolder': P,
+  'torrents.setDefaultHandler': P,
   'media.info': ['overlay'],
   'media.probe': ['overlay'],
   'media.start': ['overlay'],
@@ -255,3 +282,4 @@ export type PushMessage =
   | { type: 'theme'; theme: 'light' | 'dark' | 'tor' }
   | { type: 'tor-status'; state: TorState }
   | { type: 'downloads'; jobs: DownloadJob[] }
+  | { type: 'torrents'; torrents: TorrentInfo[]; status: TorrentsStatus }

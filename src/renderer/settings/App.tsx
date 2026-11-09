@@ -7,8 +7,9 @@ import type { Settings, SettingsPatch } from '@shared/settings'
 import { useSettings } from '../shared-ui/hooks'
 import { DownloadsSection } from './DownloadsSection'
 import { ShieldsSection } from './ShieldsSection'
+import { TorrentsSection } from './TorrentsSection'
 
-const SECTIONS = ['Appearance', 'Search', 'Shields', 'Privacy & Security', 'Downloads', 'Network', 'Tor', 'About'] as const
+const SECTIONS = ['Appearance', 'Search', 'Shields', 'Privacy & Security', 'Downloads', 'Torrents', 'Network', 'Tor', 'About'] as const
 type Section = (typeof SECTIONS)[number]
 
 const inputStyle = { background: 'var(--field)', border: '1px solid var(--border)', userSelect: 'text' as const }
@@ -331,6 +332,7 @@ export function App() {
 
         {section === 'Shields' && <ShieldsSection settings={settings} update={update} />}
         {section === 'Downloads' && <DownloadsSection settings={settings} update={update} />}
+        {section === 'Torrents' && <TorrentsSection settings={settings} update={update} />}
         {section === 'Network' && <NetworkSection settings={settings} update={update} />}
         {section === 'Tor' && <TorSection />}
 

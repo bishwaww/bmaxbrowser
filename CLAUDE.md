@@ -44,7 +44,11 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
   - yt-dlp 2026.10.26 and ffmpeg 9.0.2 (GPLv3 full build, copied from the dev machine winget install) are in resources/bin (git-ignored; hashes in resources/bin/CHECKSUMS.md). YouTube JS runtime = this app run as Node (ELECTRON_RUN_AS_NODE) via --js-runtimes.
   - Jobs are memory-only; Burn and quit kill running yt-dlp trees. Pause = kill + resume from .part in a per-job temp dir.
   - Known: DASH/HLS only via yt-dlp+ffmpeg (blob:/MSE players are handled through the page URL); yt-dlp uses system DNS (not DoH) unless proxied; first yt-dlp start takes ~5 s (onefile unpack); ffmpeg full build is large and GPLv3 (licence check before shipping); 8K availability depends on the site.
-- [ ] Phase 5 Torrents
+- [x] Phase 5 Torrents (see notes)
+  - `src/main/torrents/`: `worker.ts` (webtorrent 3, ESM loaded via dynamic import inside an Electron utilityProcess; bundled with `?modulePath`), `TorrentManager.ts` (process lifecycle, request/reply protocol, guards, dialogs, magnet/.torrent interception). Shared parsing/validation in `src/shared/torrents.ts`. UI: `bmax://torrents` (selection, progress, player; CSP allows media from 127.0.0.1 only on this page), Settings -> Torrents. Tor windows: every torrents.* command and magnet/.torrent handling is refused (`assertAllowed`).
+  - webtorrent quirks handled: `torrent.done` means ALL files (we compute "chosen files complete"), pause() only stops new peers (we also drop wires and deselect), NAT/LSD defaults changed to OFF, client-level maxConns/throttles applied at runtime.
+  - npm blocked node-datachannel install script (WebRTC peers) - not needed for TCP peers; do not approve it casually. e2e uses TCP-only peers (BMAX_TORRENT_NO_UTP=1; uTP native addon is not usable in the Playwright node process).
+  - Known: no resume of partial torrents after restart (memory-only by design); only video/audio formats Chromium can play are streamable in the built-in player (others: open with system player); tracker DNS uses the system resolver; no real-internet swarm test (hermetic local swarm only).
 - [ ] Phase 6 Settings/extensions/polish/packaging
 
 ## Commands
