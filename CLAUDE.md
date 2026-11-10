@@ -59,7 +59,8 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
   - Updates: `updates/UpdateManager` over electron-updater (partition `electron-updater` carries the proxy setting); unsupported in dev/portable/non-AppImage Linux; flow tested with a fake updater only.
   - Packaging: `electron-builder.yml` (NSIS+portable, dmg+zip, AppImage+deb; signing/notarization are placeholders), `npm run dist:dir` verified on Windows (`tests/e2e/packaged.spec.ts` runs against dist/win-unpacked and skips if absent). Installer (NSIS) build, macOS and Linux builds NOT run. Icons from `npm run icons`. `npm run verify-binaries`. CI: `.github/workflows/ci.yml` (no e2e: needs binaries) and `release.yml` (tag → draft release). Docs: PACKAGING.md, THIRD_PARTY.md (FFmpeg full build is GPLv3: decide before distributing).
   - Perf: first window visible ~0.3 s after process start (`services.metrics.firstWindowMs`, asserted < 2 s in e2e, dev and packaged).
-  - Known: spellcheck dictionary still not bundled (needs the user's OK to fetch one); real update flow, DoH providers, real Tor circuits and real-internet torrents unverified; fingerprint noise not in Web Workers.
+  - Spellcheck: en-US.bdic bundled (resources/dictionaries, Chromium hunspell repo, hash pinned; downloaded once with the user's approval). Other languages: drop `<lang>.bdic` into that folder. Flag `WinUseBrowserSpellChecker` is disabled so only the bundled dictionary is used (negative control: without the file nothing is flagged; test in phase6.spec.ts uses real key events, `insertText` does not trigger spellcheck).
+  - Known: real update flow, DoH providers, real Tor circuits and real-internet torrents unverified; fingerprint noise not in Web Workers.
 
 ## Commands
 `npm run dev` · `npm run build` · `npm run typecheck` · `npm run lint` · `npm test` · `npm run test:e2e`

@@ -362,3 +362,36 @@ test('picture-in-picture toggles for the video on the page', async () => {
   await go(`${server.origin}/b`)
   expect(await inMain<string>(h.app, `return await s.windows.focused().activeTab.togglePictureInPicture()`)).toBe('none')
 })
+
+// ---------------------------------------------------------------- spell-check
+
+test('spell-check works offline with the bundled en-US dictionary', async () => {
+  const info = await inMain<{ langs: string[]; enabled: boolean }>(
+    h.app,
+    `const ses = s.sessions.web('bmax-private'); return { langs: ses.getSpellCheckerLanguages(), enabled: ses.isSpellCheckerEnabled() }`
+  )
+  expect(info).toEqual({ langs: ['en-US'], enabled: true })
+  await go(`${server.origin}/spell`)
+  // Listen for the context-menu event ourselves (the tab's own handler would open a native menu).
+  await inMain(
+    h.app,
+    `const wc = s.windows.focused().activeTab.wc; wc.removeAllListeners('context-menu'); globalThis.__spell = null
+     wc.on('context-menu', (_e, p) => { globalThis.__spell = { word: p.misspelledWord, suggestions: p.dictionarySuggestions } })
+     await wc.executeJavaScript("document.getElementById('t').focus()", true)
+     for (const ch of 'helo wrld ') { wc.sendInputEvent({ type: 'keyDown', keyCode: ch }); wc.sendInputEvent({ type: 'char', keyCode: ch }); wc.sendInputEvent({ type: 'keyUp', keyCode: ch }) }`
+  )
+  let result: { word: string; suggestions: string[] } | null = null
+  for (let i = 0; i < 20 && !result?.word; i++) {
+    await sleep(500)
+    await inMain(
+      h.app,
+      `const wc = s.windows.focused().activeTab.wc; globalThis.__spell = null
+       wc.sendInputEvent({ type: 'mouseDown', x: 12, y: 10, button: 'right', clickCount: 1 })
+       wc.sendInputEvent({ type: 'mouseUp', x: 12, y: 10, button: 'right', clickCount: 1 })`
+    )
+    await sleep(300)
+    result = await inMain<{ word: string; suggestions: string[] } | null>(h.app, 'return globalThis.__spell')
+  }
+  expect(result?.word).toBe('helo')
+  expect(result!.suggestions).toContain('hello')
+})

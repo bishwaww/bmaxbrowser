@@ -35,6 +35,11 @@ the notices. Options before a public release:
 2. keep the GPLv3 build, include its licence and source offer in the installer, and have the licence question reviewed, or
 3. do not bundle FFmpeg at all and let the downloader ask the user to install it (the downloader already reports "not installed").
 
+## Data files bundled with the app
+| File | Source | Licence |
+|---|---|---|
+| `resources/dictionaries/en-US.bdic` | Chromium `hunspell_dictionaries` (en-US-10-2) | the dictionary's own licence, shipped with Chromium's hunspell dictionaries (derived from SCOWL / Hunspell en_US word lists); check it before distributing |
+
 ## Filter lists (downloaded at run time, not bundled)
 Shields downloads EasyList / EasyPrivacy (GPLv3 / CC BY-SA), uBlock Origin filter lists (GPLv3), Peter Lowe's list, AdGuard lists (GPLv3),
 Fanboy lists (GPLv3 / CC BY-SA) and the URLhaus malware-filter mirror (CC0) from their publishers on the user's machine. They are cached

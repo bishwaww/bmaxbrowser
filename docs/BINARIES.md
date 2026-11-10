@@ -27,6 +27,10 @@ Layout: `resources/bin/ffmpeg/<platform>-<arch>/{ffmpeg,ffprobe}(.exe)`. ffmpeg.
 `resources/dictionaries/<lang>.bdic` (e.g. `en-US.bdic`). BMAX serves them to Chromium from a loopback-only server so Electron never
 contacts Google's dictionary CDN. Without a file, spellcheck stays off.
 
+`en-US.bdic` is bundled (it is the Chromium `en-US-10-2.bdic` from https://chromium.googlesource.com/chromium/deps/hunspell_dictionaries, hash pinned
+in `resources/bin/CHECKSUMS.md`). To add a language, download its `<lang>-<n>-<n>.bdic` from that repository, save it as `resources/dictionaries/<lang>.bdic`,
+and pin its hash. Spell-check never uses the network at run time.
+
 Verify what is on disk against the pinned hashes with `npm run verify-binaries` (`-- --strict` also fails on missing files). Packaging copies the
 `resources/bin/<tool>/<platform>-<arch>/` folders into the installer (see docs/PACKAGING.md). Before shipping, read the FFmpeg/GPL note in
 docs/THIRD_PARTY.md: the 430 MB "full" build used in development is GPLv3.

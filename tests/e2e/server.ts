@@ -117,6 +117,8 @@ export async function startServer(): Promise<TestServer> {
           ${[7, 8].map(para).join('')}
           </article><footer><p>Copyright footer</p></footer></body></html>`)
       }
+      case '/spell':
+        return send('<!doctype html><title>Spell</title><body style="margin:0"><textarea id="t" spellcheck="true" lang="en-US" style="width:400px;height:100px;margin:0;font:16px monospace"></textarea></body>')
       case '/ext-page':
         return send('<!doctype html><title>Ext Page</title><body><p id="p">extension target</p></body>')
       case '/count':

@@ -23,7 +23,9 @@ export function applyFlags(): void {
       'OptimizationHints',
       'AutofillServerCommunication',
       'CertificateTransparencyComponentUpdater',
-      'InterestFeedContentSuggestions'
+      'InterestFeedContentSuggestions',
+      // Use only the bundled Hunspell dictionary, never the operating system's spell-checker (same behaviour everywhere).
+      'WinUseBrowserSpellChecker'
     ].join(',')
   )
   // Belt and braces; the real policy is applied per webContents in Phase 2.

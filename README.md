@@ -92,7 +92,7 @@ flowchart TB
 - **Extensions** use Electron's partial support, only run in a separate "window with extensions" (a temporary on-disk profile), and have no toolbar
   buttons; Manifest V2 blockers such as classic uBlock Origin do not work.
 - Fingerprint protection is partial (not applied inside Web Workers; font enumeration only partly mitigated).
-- No password autofill (manual copy from the vault). Spell-check dictionaries are not bundled.
+- No password autofill (manual copy from the vault). Spell-check ships with English (en-US) only.
 - Not yet verified: DNS-over-HTTPS against real providers, real Tor circuits beyond a smoke test, a real-internet torrent swarm, macOS/Linux builds,
   installer (NSIS) builds, and an update from one published release to the next.
 

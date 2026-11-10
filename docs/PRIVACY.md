@@ -92,6 +92,9 @@ Browser users (use the official Tor Browser for that).
   per-session token and a Host-header check.
 - Torrent metadata is untrusted: torrents whose file paths could escape the download folder are rejected.
 
+## Spell-check
+Spell-check uses an English (en-US) dictionary that ships inside BMAX and runs entirely on your computer. Nothing you type is sent anywhere, and BMAX never downloads dictionaries (the operating system's own spell-checker is switched off so only the bundled dictionary is used).
+
 ## Reader mode
 Reader mode extracts the article from the page you are looking at, in your own browser (Mozilla Readability), and shows it on an internal
 page. The article text is kept in memory only, for the tabs that need it, and is cleared by Burn. Nothing is sent anywhere. Because a web

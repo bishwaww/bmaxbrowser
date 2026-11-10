@@ -32,6 +32,8 @@ extraResources:
     to: resources/icons/icon.png
   - from: resources/bin/CHECKSUMS.md
     to: resources/bin/CHECKSUMS.md
+  - from: resources/dictionaries
+    to: resources/dictionaries
   - from: docs/THIRD_PARTY.md
     to: resources/licenses/THIRD_PARTY.md
   - from: docs/PRIVACY.md

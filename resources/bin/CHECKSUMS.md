@@ -10,6 +10,14 @@ Format: `sha256  file  source  verification`
 1607d98f5d13859077b1b349c55beba76b09acc788f0431fd824d11966fb1074  tor/tor.exe   (extracted from the archive above)
 ```
 
+## Spell-check dictionary en-US (all platforms), Chromium hunspell_dictionaries en-US-10-2.bdic
+```
+b0d80e6b6c5491879365e176ecbd98074602a663429bcfcfb0a5a8375c051f13  ../dictionaries/en-US.bdic
+  https://chromium.googlesource.com/chromium/deps/hunspell_dictionaries/+/refs/heads/main/en-US-10-2.bdic
+  Integrity: the git blob id of the downloaded bytes (fb4bae636596c1179ce78121a35382b414525516) equals the one in the repository listing. No publisher signature exists for it.
+  Downloaded once by the developer (with approval) over HTTPS from Chromium's own repository, not Google's dictionary CDN; BMAX never fetches dictionaries at run time.
+```
+
 ## yt-dlp (win32-x64), release 2026.10.26
 ```
 f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d  yt-dlp/win32-x64/yt-dlp.exe
