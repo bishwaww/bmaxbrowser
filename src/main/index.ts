@@ -1,4 +1,6 @@
 import { app, Menu, nativeTheme, session } from 'electron'
+import { rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { IPC_PUSH } from '@shared/ipc'
 import type { PushMessage } from '@shared/ipc'
 import { applyFlags } from './app/flags'
@@ -28,8 +30,15 @@ import { SessionManager } from './sessions/SessionManager'
 import { SettingsStore } from './settings/SettingsStore'
 import { StatsStore } from './settings/StatsStore'
 import { WindowManager } from './windows/WindowManager'
+import type { BmaxWindow } from './windows/BmaxWindow'
+import { ExtensionManager } from './extensions/ExtensionManager'
+import { ReaderManager } from './reader/ReaderManager'
+import { SessionRestore } from './session/SessionRestore'
+import { TabSleeper } from './tabs/TabSleeper'
+import { UpdateManager } from './updates/UpdateManager'
 
 registerInternalScheme()
+services.metrics = { firstWindowMs: null, readyMs: null }
 applyFlags()
 
 // Optional isolated profile directory for tests (never used in normal runs).
@@ -74,6 +83,9 @@ app.on('second-instance', (_e, argv) => {
 app.on('window-all-closed', () => app.quit())
 
 app.on('before-quit', () => {
+  // Save the open tabs once (if the user opted in), then ignore the windows closing one by one.
+  services.restore?.flush()
+  services.restore?.suppress(true)
   services.settings?.flush()
   services.stats?.flush()
   services.downloads?.reset()
@@ -83,10 +95,24 @@ app.on('before-quit', () => {
 
 void app.whenReady().then(async () => {
   if (!gotLock) return
+  services.metrics.readyMs = Math.round(process.uptime() * 1000)
+  if (process.platform === 'win32') app.setAppUserModelId('com.bmax.browser')
   await initSpellcheck()
 
   services.settings = new SettingsStore()
   services.settings.load()
+  // The extension profile is a temporary on-disk profile: delete whatever a previous run (or a crash) left behind.
+  try {
+    rmSync(join(app.getPath('userData'), 'Partitions', 'bmax-ext'), { recursive: true, force: true })
+  } catch {
+    /* nothing to remove */
+  }
+  services.restore = new SessionRestore()
+  services.restore.init()
+  services.reader = new ReaderManager()
+  services.sleeper = new TabSleeper()
+  services.extensions = new ExtensionManager()
+  services.updates = new UpdateManager()
   services.stats = new StatsStore()
   services.stats.load()
   nativeTheme.themeSource = services.settings.get().theme
@@ -112,6 +138,8 @@ void app.whenReady().then(async () => {
     settings: services.settings
   })
   services.windows = new WindowManager()
+  // Installed extensions load before the first page so their content scripts apply to it.
+  await services.extensions.init()
 
   // The default session is never used for web content; lock it down anyway.
   session.defaultSession.setPermissionRequestHandler((_wc, _p, cb) => cb(false))
@@ -182,25 +210,43 @@ void app.whenReady().then(async () => {
       }
     }
   })
+  const applySiteColorScheme = (): void => {
+    for (const w of services.windows.all()) for (const t of w.tabs) void t.applyColorScheme()
+  }
   services.settings.on('change', (settings: Settings, prev: Settings) => {
     services.shields.onSettingsChange(prev, settings)
     services.torrents.onSettingsChange({ ...prev.torrents })
     applyDoh(settings)
     services.sessions.applySettings()
+    services.restore.onSettingsChange(prev.general.restoreSession)
     const themeChanged = nativeTheme.themeSource !== settings.theme
     nativeTheme.themeSource = settings.theme
     broadcast({ type: 'settings', settings })
     if (themeChanged) broadcastTheme()
+    if (themeChanged || prev.siteColorScheme !== settings.siteColorScheme) applySiteColorScheme()
   })
-  nativeTheme.on('updated', broadcastTheme)
+  nativeTheme.on('updated', () => {
+    broadcastTheme()
+    applySiteColorScheme()
+  })
+  services.updates.on('state', (state) => broadcast({ type: 'updates', state }))
 
   // Test hook: only exists when explicitly requested by the e2e harness.
   if (process.env['BMAX_TEST'] === '1') (globalThis as Record<string, unknown>)['__bmax'] = services
 
-  const firstWindow = services.windows.create({ url: urlFromArgv(process.argv) })
+  // Opt-in "continue where you left off": reopen last time's windows (only the selected tab of each loads).
+  const startUrl = urlFromArgv(process.argv)
+  const restored = services.restore.restore()
+  let firstWindow: BmaxWindow
+  if (restored > 0) {
+    firstWindow = services.windows.focused()!
+    if (startUrl) firstWindow.openTab(startUrl)
+  } else firstWindow = services.windows.create({ url: startUrl })
   const startMagnet = magnetFromArgv(process.argv)
   if (startMagnet) void services.torrents.handleMagnet(startMagnet, null, firstWindow)
   services.shields.init()
+  services.sleeper.start()
+  if (process.env['BMAX_TEST'] !== '1') services.updates.schedule()
   // Keep yt-dlp current (sites change often): one check per day, shortly after startup. Switchable in Settings → Downloads.
   if (process.env['BMAX_TEST'] !== '1') {
     // Warm up yt-dlp (copy to userData, first-run unpacking) so the first download starts promptly.

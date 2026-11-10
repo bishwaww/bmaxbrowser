@@ -40,6 +40,7 @@ export function MenuView() {
       />
       <Row label="New window" hint={`${mod}N`} onClick={act('newWindow')} />
       <Row label="New isolated window" hint={`${mod}Shift+N`} onClick={act('newIsolatedWindow')} />
+      <Row label="New window with extensions" hint={`${mod}Shift+E`} onClick={act('newExtensionWindow')} />
       <Row
         label="New container tab"
         onClick={() => {
@@ -72,6 +73,8 @@ export function MenuView() {
         </div>
       </div>
       <Sep />
+      <Row label="Reader mode" hint={mac ? '⌘⌥R' : 'Ctrl+Alt+R'} onClick={act('readerMode')} />
+      <Row label="Picture-in-picture" hint={mac ? '⌘⌥P' : 'Ctrl+Alt+P'} onClick={act('pictureInPicture')} />
       <Row label="Find in page…" hint={`${mod}F`} onClick={act('find')} />
       <Row label="Print…" hint={`${mod}P`} onClick={act('print')} />
       <Row label="Save page as…" hint={`${mod}S`} onClick={act('savePage')} />
@@ -95,6 +98,13 @@ export function MenuView() {
       />
       <Row label="Burn all browsing data" hint={`${mod}Shift+Del`} onClick={act('burn')} />
       <Row label="Settings" hint={`${mod},`} onClick={act('settings')} />
+      <Row
+        label="Privacy policy"
+        onClick={() => {
+          void window.bmax.cmd('tab.new', { url: 'bmax://privacy' })
+          void window.bmax.cmd('overlay.hide', { kind: 'menu' })
+        }}
+      />
     </div>
   )
 }

@@ -10,7 +10,7 @@ import type { ShortcutCommand } from '@shared/shortcuts'
 import { matchShortcut } from '@shared/shortcuts'
 import type { PermissionPromptData, WindowState } from '@shared/types'
 import { internalPageOf, resolveLoadUrl } from '../app/internal-pages'
-import { preloadPath } from '../app/paths'
+import { iconPath, preloadPath } from '../app/paths'
 import { registry } from '../app/registry'
 import { services } from '../services'
 import { PRIVATE_PARTITION } from '../sessions/SessionManager'
@@ -25,6 +25,8 @@ export interface WindowOptions {
   empty?: boolean
   partition?: string
   isolated?: boolean
+  /** Extension window (partition must be EXT_PARTITION). */
+  extensions?: boolean
   /** Tor window (its partition must come from SessionManager.prepareTor). */
   tor?: boolean
   bounds?: Partial<Rectangle>
@@ -39,6 +41,7 @@ export class BmaxWindow {
   readonly overlays: OverlayManager
   readonly partition: string
   readonly isolated: boolean
+  readonly extensions: boolean
   readonly tor: boolean
   tabs: Tab[] = []
   activeTab: Tab | null = null
@@ -50,12 +53,15 @@ export class BmaxWindow {
 
   constructor(opts: WindowOptions = {}) {
     this.isolated = opts.isolated ?? false
+    this.extensions = opts.extensions ?? false
     this.tor = opts.tor ?? false
     this.partition = opts.partition ?? (this.isolated ? services.sessions.newIsolatedPartition() : PRIVATE_PARTITION)
     const dark = nativeTheme.shouldUseDarkColors
     const colors = chromeColors(dark, this.tor)
 
+    const icon = iconPath()
     this.base = new BaseWindow({
+      ...(icon ? { icon } : {}),
       width: 1280,
       height: 820,
       minWidth: 480,
@@ -109,6 +115,8 @@ export class BmaxWindow {
     this.base.on('enter-full-screen', () => this.layout())
     this.base.on('leave-full-screen', () => this.layout())
     this.base.on('focus', () => services.windows.setCurrent(this))
+    // Remember the other windows before this one disappears (session restore keeps the last real state).
+    this.base.on('close', () => services.restore?.flush(this))
     this.base.on('closed', () => this.dispose())
 
     if (!opts.empty) this.openTab(opts.url ?? services.settings.get().homepage, { background: false })
@@ -118,6 +126,7 @@ export class BmaxWindow {
   private reveal(): void {
     if (this.shown || this.disposed) return
     this.shown = true
+    if (services.metrics && services.metrics.firstWindowMs === null) services.metrics.firstWindowMs = Math.round(process.uptime() * 1000)
     this.base.show()
   }
 
@@ -139,6 +148,7 @@ export class BmaxWindow {
   }
 
   notify(): void {
+    services.restore?.markDirty()
     if (this.pushQueued || this.disposed) return
     this.pushQueued = true
     queueMicrotask(() => {
@@ -158,6 +168,7 @@ export class BmaxWindow {
       progress: active?.loading ? active.progress : 0,
       zoomPercent: active ? Math.round(active.zoomFactor * 100) : 100,
       isolated: this.isolated,
+      extensions: this.extensions,
       theme: this.tor ? 'tor' : nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
       showHomeButton: services.settings.get().showHomeButton,
       tor: this.tor
@@ -205,8 +216,8 @@ export class BmaxWindow {
     return this.tabs.filter((t) => t.pinned).length
   }
 
-  openTab(url: string, opts: { background?: boolean; partition?: string; index?: number } = {}): Tab {
-    const tab = new Tab(this, opts.partition ?? this.partition, url)
+  openTab(url: string, opts: { background?: boolean; partition?: string; index?: number; lazy?: boolean } = {}): Tab {
+    const tab = new Tab(this, opts.partition ?? this.partition, url, { lazy: opts.lazy ?? false })
     const idx = opts.index ?? this.tabs.length
     this.tabs.splice(Math.max(this.pinnedCount(), Math.min(idx, this.tabs.length)), 0, tab)
     if (!opts.background) {
@@ -221,10 +232,13 @@ export class BmaxWindow {
     if (this.activeTab === tab || !this.tabs.includes(tab)) return
     const prev = this.activeTab
     if (prev) {
+      prev.lastActiveAt = Date.now()
       if (this.overlays.isVisible('find')) this.stopFind()
       if (this.base.contentView.children.includes(prev.view)) this.base.contentView.removeChildView(prev.view)
     }
     this.activeTab = tab
+    tab.lastActiveAt = Date.now()
+    if (tab.sleeping) tab.wake()
     this.base.contentView.addChildView(tab.view)
     this.layout()
     this.overlays.hideTransient()
@@ -436,6 +450,9 @@ export class BmaxWindow {
         if (this.tor) void services.windows.createTor()
         else services.windows.create({ isolated: cmd === 'newIsolatedWindow' })
         return
+      case 'newExtensionWindow':
+        if (!this.tor) void services.windows.createExtensionWindow()
+        return
       case 'savePage':
         void this.savePage()
         return
@@ -465,6 +482,12 @@ export class BmaxWindow {
         return
       case 'bookmarkPage':
         this.toggleBookmark()
+        return
+      case 'readerMode':
+        if (tab && !tab.sleeping) void services.reader.open(tab)
+        return
+      case 'pictureInPicture':
+        if (tab) void tab.togglePictureInPicture()
         return
       case 'downloads': {
         const existing = this.tabs.find((t) => internalPageOf(t.wc.getURL()) === 'downloads')

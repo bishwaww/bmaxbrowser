@@ -18,6 +18,11 @@ const SHIELDS_PRELOAD = createRequire(__filename).resolve('@ghostery/adblocker-e
 /** No "persist:" prefix → memory-only partitions: no cookies/cache/localStorage/IndexedDB ever written to disk. */
 export const PRIVATE_PARTITION = 'bmax-private'
 export const UI_PARTITION = 'bmax-ui'
+/**
+ * Electron refuses to load extensions into memory-only sessions, so extension windows use this PERSISTENT partition. It is a
+ * temporary profile: wiped when its last tab closes, on Burn and on quit, and its folder is deleted at the next start.
+ */
+export const EXT_PARTITION = 'persist:bmax-ext'
 
 /** Strip the Electron / app tokens from the UA so sites see a plain Chrome. */
 export function cleanUserAgent(ua: string): string {
@@ -31,6 +36,8 @@ interface Entry {
   ephemeral: boolean
   refs: number
   secret: string
+  /** Keep the (wiped) session object when its last tab closes, because it is reused (extension profile). */
+  keep?: boolean
 }
 
 async function wipe(ses: Session): Promise<void> {
@@ -98,7 +105,8 @@ export class SessionManager {
       tor,
       ephemeral: partition !== PRIVATE_PARTITION,
       refs: 0,
-      secret: randomBytes(16).toString('hex')
+      secret: randomBytes(16).toString('hex'),
+      keep: partition === EXT_PARTITION
     })
     this.configure(ses, tor)
     return ses
@@ -113,6 +121,18 @@ export class SessionManager {
     this.entries.set('bmax-updates', { ses, tor: false, ephemeral: false, refs: 1, secret: '' })
     this.configure(ses, false)
     this.utility_ = ses
+    return ses
+  }
+
+  private updater_: Session | null = null
+
+  /** Network session of electron-updater (it asks for the partition 'electron-updater'): carries the user's proxy setting, no cache. */
+  updater(): Session {
+    if (this.updater_) return this.updater_
+    const ses = session.fromPartition('electron-updater', { cache: false })
+    this.entries.set('electron-updater', { ses, tor: false, ephemeral: false, refs: 1, secret: '' })
+    this.configure(ses, false)
+    this.updater_ = ses
     return ses
   }
 
@@ -185,7 +205,7 @@ export class SessionManager {
     if (!e) return
     e.refs = Math.max(0, e.refs - 1)
     if (e.refs === 0 && e.ephemeral) {
-      this.entries.delete(partition)
+      if (!e.keep) this.entries.delete(partition)
       void wipe(e.ses)
     }
   }

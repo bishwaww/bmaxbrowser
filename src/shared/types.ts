@@ -15,6 +15,8 @@ export interface TabInfo {
   audible: boolean
   security: SecurityLevel
   isNewTab: boolean
+  /** Background tab whose page was unloaded to free memory; reloads when selected. */
+  sleeping: boolean
   /** Short id of the tab's container (isolated session), or null for the shared private session. */
   container: string | null
   /** Current URL is in the (unlocked) bookmarks vault. */
@@ -41,6 +43,8 @@ export interface WindowState {
   showHomeButton: boolean
   /** Tor window: purple theme, strict settings, fail-closed networking. */
   tor: boolean
+  /** Extension window: the only kind of window that runs extensions (its own temporary on-disk profile). */
+  extensions: boolean
 }
 
 export interface CertInfo {

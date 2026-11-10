@@ -1,0 +1,65 @@
+.policy {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 32px 24px 96px;
+  line-height: 1.6;
+  user-select: text;
+}
+.policy h1 {
+  font-size: 1.8rem;
+  font-weight: 600;
+  margin-bottom: 0.6em;
+}
+.policy h2 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 2em 0 0.5em;
+  padding-bottom: 0.25em;
+  border-bottom: 1px solid var(--border);
+}
+.policy h3 {
+  font-weight: 600;
+  margin: 1.4em 0 0.4em;
+}
+.policy p,
+.policy ul {
+  margin: 0.7em 0;
+}
+.policy ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.policy li + li {
+  margin-top: 0.35em;
+}
+.policy a {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.policy code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.88em;
+  background: var(--field);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.policy .table-wrap {
+  overflow-x: auto;
+  margin: 1em 0;
+}
+.policy table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.92em;
+}
+.policy th,
+.policy td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+.policy th {
+  background: var(--field);
+}

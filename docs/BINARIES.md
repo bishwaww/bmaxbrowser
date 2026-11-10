@@ -26,3 +26,7 @@ Layout: `resources/bin/ffmpeg/<platform>-<arch>/{ffmpeg,ffprobe}(.exe)`. ffmpeg.
 ## Spellcheck dictionaries
 `resources/dictionaries/<lang>.bdic` (e.g. `en-US.bdic`). BMAX serves them to Chromium from a loopback-only server so Electron never
 contacts Google's dictionary CDN. Without a file, spellcheck stays off.
+
+Verify what is on disk against the pinned hashes with `npm run verify-binaries` (`-- --strict` also fails on missing files). Packaging copies the
+`resources/bin/<tool>/<platform>-<arch>/` folders into the installer (see docs/PACKAGING.md). Before shipping, read the FFmpeg/GPL note in
+docs/THIRD_PARTY.md: the 430 MB "full" build used in development is GPLv3.

@@ -6,6 +6,9 @@ import type { Bookmark, PasswordEntry, VaultStatus } from './vault'
 import type { DownloadJob, ImageSummary, MediaPanelInfo, ProbeResult, ToolStatus } from './downloads'
 import type { TorrentInfo, TorrentsStatus } from './torrents'
 import type { ShieldsListsInfo, ShieldsPanelInfo } from './shields'
+import type { AppInfo, UpdateState } from './updates'
+import type { ExtensionInfo } from './extensions'
+import type { Article } from './reader'
 
 export interface VaultResult {
   ok: boolean
@@ -19,6 +22,7 @@ const url = z.string().max(8192)
 const rect = z.object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
 const kind = z.enum(['menu', 'cert', 'permission', 'find', 'suggest', 'shields', 'media'])
 const empty = z.object({}).strict().optional()
+const extId = z.string().regex(/^[a-p]{32}$/)
 
 /** zod schema per command. Every IPC message is parsed against these in the main process. */
 export const commandSchemas = {
@@ -34,6 +38,7 @@ export const commandSchemas = {
   'tab.closeRight': z.object({ id }),
   'tab.tearOff': z.object({ id, screenX: z.number(), screenY: z.number() }),
   'tab.contextMenu': z.object({ id }),
+  'tab.sleep': z.object({ id }),
   'nav.go': z.object({ input: z.string().max(8192), newTab: z.boolean().optional() }),
   'nav.back': empty,
   'nav.forward': empty,
@@ -57,7 +62,10 @@ export const commandSchemas = {
       'newTorWindow',
       'burn',
       'bookmarkPage',
-      'downloads'
+      'downloads',
+      'readerMode',
+      'pictureInPicture',
+      'newExtensionWindow'
     ])
   }),
   'overlay.show': z.object({ kind, rect, data: z.unknown().optional() }),
@@ -85,6 +93,17 @@ export const commandSchemas = {
   'torrents.clear': empty,
   'torrents.chooseFolder': empty,
   'torrents.setDefaultHandler': z.object({ enabled: z.boolean() }),
+  'app.info': empty,
+  'updates.check': empty,
+  'updates.download': empty,
+  'updates.install': empty,
+  'extensions.list': empty,
+  'extensions.installUnpacked': empty,
+  'extensions.installCrx': empty,
+  'extensions.setEnabled': z.object({ id: extId, enabled: z.boolean() }),
+  'extensions.remove': z.object({ id: extId }),
+  'extensions.open': z.object({ id: extId, page: z.enum(['options', 'popup']) }),
+  'reader.get': z.object({ id: z.string().regex(/^[0-9a-f]{32}$/) }),
   'media.info': empty,
   'media.probe': z.object({ url: z.string().max(4096) }),
   'media.start': z.object({
@@ -143,7 +162,21 @@ export const commandSchemas = {
 export type CommandName = keyof typeof commandSchemas
 export type CommandArgs<K extends CommandName> = z.input<(typeof commandSchemas)[K]>
 
+export interface ExtensionResult {
+  ok: boolean
+  message?: string | undefined
+}
+
 export interface CommandResults {
+  'app.info': AppInfo
+  'updates.check': UpdateState
+  'updates.download': UpdateState
+  'extensions.list': ExtensionInfo[]
+  'extensions.installUnpacked': ExtensionResult
+  'extensions.installCrx': ExtensionResult
+  'extensions.setEnabled': ExtensionResult
+  'extensions.remove': ExtensionResult
+  'reader.get': Article | null
   'cert.get': CertInfo | null
   'settings.get': Settings
   'settings.update': Settings
@@ -203,6 +236,7 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'tab.closeRight': C,
   'tab.tearOff': C,
   'tab.contextMenu': C,
+  'tab.sleep': C,
   'nav.go': CO,
   'nav.back': C,
   'nav.forward': C,
@@ -233,6 +267,17 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'torrents.clear': P,
   'torrents.chooseFolder': P,
   'torrents.setDefaultHandler': P,
+  'app.info': ['chrome', 'overlay', 'page'],
+  'updates.check': P,
+  'updates.download': P,
+  'updates.install': P,
+  'extensions.list': P,
+  'extensions.installUnpacked': P,
+  'extensions.installCrx': P,
+  'extensions.setEnabled': P,
+  'extensions.remove': P,
+  'extensions.open': P,
+  'reader.get': P,
   'media.info': ['overlay'],
   'media.probe': ['overlay'],
   'media.start': ['overlay'],
@@ -283,3 +328,4 @@ export type PushMessage =
   | { type: 'tor-status'; state: TorState }
   | { type: 'downloads'; jobs: DownloadJob[] }
   | { type: 'torrents'; torrents: TorrentInfo[]; status: TorrentsStatus }
+  | { type: 'updates'; state: UpdateState }

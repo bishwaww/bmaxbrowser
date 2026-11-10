@@ -2,7 +2,7 @@ import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['tests/e2e/fake-tor.cjs', 'out/**', 'dist/**', 'node_modules/**', 'resources/**', 'test-results/**'] },
+  { ignores: ['tests/e2e/fake-tor.cjs', 'out/**', 'dist/**', 'node_modules/**', 'resources/**', 'scripts/**', 'test-results/**'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {

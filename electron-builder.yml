@@ -1,0 +1,122 @@
+# electron-builder configuration for BMAX Browser. See docs/PACKAGING.md.
+#   npm run dist:dir   unpacked app for a quick check (dist/win-unpacked)
+#   npm run dist:win   NSIS installer + portable .exe   (run on Windows)
+#   npm run dist:mac   .dmg + .zip                      (run on macOS)
+#   npm run dist:linux AppImage + .deb                  (run on Linux)
+appId: com.bmax.browser
+productName: BMAX Browser
+copyright: Copyright © 2026 BMAX
+directories:
+  output: dist
+  buildResources: resources/icons
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+  - '!**/node_modules/**/{test,tests,__tests__,docs,example,examples}/**'
+
+asar: true
+# Native add-ons (WebTorrent's optional uTP/WebRTC modules) cannot be loaded from inside an asar archive.
+asarUnpack:
+  - '**/*.node'
+# Native modules are not rebuilt: BMAX needs only the pure-JavaScript paths (TCP peers).
+npmRebuild: false
+compression: normal # use 'maximum' for release builds
+forceCodeSigning: false
+
+# Resources shared by every platform. Bundled third-party binaries are added per platform below
+# (resources/bin/** is git-ignored: fetch them first and check them with `npm run verify-binaries`).
+extraResources:
+  - from: resources/icons/icon.png
+    to: resources/icons/icon.png
+  - from: resources/bin/CHECKSUMS.md
+    to: resources/bin/CHECKSUMS.md
+  - from: docs/THIRD_PARTY.md
+    to: resources/licenses/THIRD_PARTY.md
+  - from: docs/PRIVACY.md
+    to: resources/licenses/PRIVACY.md
+
+# Updates: GitHub Releases through electron-updater (the NSIS installer, the macOS .zip and the AppImage can update
+# themselves; the portable .exe and .deb cannot).
+publish:
+  provider: github
+  owner: bishwaww
+  repo: bmaxbrowser
+  releaseType: draft
+
+win:
+  icon: resources/icons/icon.ico
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  extraResources:
+    - from: resources/bin/tor/win32-x64
+      to: resources/bin/tor/win32-x64
+    - from: resources/bin/yt-dlp/win32-x64
+      to: resources/bin/yt-dlp/win32-x64
+    - from: resources/bin/ffmpeg/win32-x64
+      to: resources/bin/ffmpeg/win32-x64
+  # Code signing (placeholders, unsigned by default). To sign, set these environment variables when building:
+  #   CSC_LINK (path or base64 of the .pfx)   CSC_KEY_PASSWORD
+  # and uncomment to pin the expected publisher (electron-updater then rejects updates signed by anyone else):
+  # signtoolOptions:
+  #   publisherName: Your Company Name
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+  shortcutName: BMAX Browser
+  artifactName: BMAX-Browser-Setup-${version}-${arch}.${ext}
+
+portable:
+  artifactName: BMAX-Browser-Portable-${version}-${arch}.${ext}
+
+mac:
+  icon: resources/icons/icon.icns
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+    - target: zip # needed for macOS auto-update
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: resources/mac/entitlements.plist
+  entitlementsInherit: resources/mac/entitlements.plist
+  # Signing + notarization (placeholders, unsigned by default). Set CSC_LINK / CSC_KEY_PASSWORD (Developer ID certificate) and
+  # APPLE_ID / APPLE_APP_SPECIFIC_PASSWORD / APPLE_TEAM_ID, then set `notarize: true`.
+  identity: null
+  notarize: false
+  extraResources:
+    - from: resources/bin/tor/darwin-${arch}
+      to: resources/bin/tor/darwin-${arch}
+    - from: resources/bin/yt-dlp/darwin-${arch}
+      to: resources/bin/yt-dlp/darwin-${arch}
+    - from: resources/bin/ffmpeg/darwin-${arch}
+      to: resources/bin/ffmpeg/darwin-${arch}
+
+dmg:
+  artifactName: BMAX-Browser-${version}-${arch}.${ext}
+
+linux:
+  icon: resources/icons
+  category: Network;WebBrowser
+  maintainer: BMAX Browser <noreply@users.noreply.github.com>
+  synopsis: Privacy-first web browser
+  target:
+    - target: AppImage
+    - target: deb
+  executableArgs: []
+  extraResources:
+    - from: resources/bin/tor/linux-${arch}
+      to: resources/bin/tor/linux-${arch}
+    - from: resources/bin/yt-dlp/linux-${arch}
+      to: resources/bin/yt-dlp/linux-${arch}
+    - from: resources/bin/ffmpeg/linux-${arch}
+      to: resources/bin/ffmpeg/linux-${arch}
+
+appImage:
+  artifactName: BMAX-Browser-${version}-${arch}.${ext}

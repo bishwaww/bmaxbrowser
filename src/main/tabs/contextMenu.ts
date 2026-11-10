@@ -28,7 +28,7 @@ export function buildContextMenu(tab: Tab, p: ContextMenuParams): Menu {
   if (p.linkURL) {
     t.push(
       { label: 'Open link in new tab', click: () => win.openTab(p.linkURL, { background: true, partition: tab.partition }) },
-      { label: 'Open link in new window', click: () => services.windows.create({ url: p.linkURL, partition: tab.partition, tor: win.tor, isolated: win.isolated }) },
+      { label: 'Open link in new window', click: () => services.windows.create({ url: p.linkURL, partition: tab.partition, tor: win.tor, isolated: win.isolated, extensions: win.extensions }) },
       { label: 'Copy link address', click: () => clipboard.writeText(p.linkURL) }
     )
     sep()
@@ -42,6 +42,9 @@ export function buildContextMenu(tab: Tab, p: ContextMenuParams): Menu {
       { label: 'Copy image address', click: () => clipboard.writeText(p.srcURL) }
     )
     sep()
+  }
+  if (p.mediaType === 'video') {
+    t.push({ label: 'Picture in picture', click: () => void tab.togglePictureInPicture(p.frame ?? undefined) })
   }
   if ((p.mediaType === 'video' || p.mediaType === 'audio') && p.srcURL && !p.srcURL.startsWith('blob:')) {
     t.push(
@@ -87,7 +90,10 @@ export function buildContextMenu(tab: Tab, p: ContextMenuParams): Menu {
       { label: 'Print…', click: () => tab.print() }
     )
     sep()
-    t.push({ label: 'View page source', click: () => win.execute('viewSource') })
+    t.push(
+      { label: 'Reader mode', click: () => win.execute('readerMode') },
+      { label: 'View page source', click: () => win.execute('viewSource') }
+    )
   }
   sep()
   t.push({ label: 'Inspect', click: () => wc.inspectElement(p.x, p.y) })

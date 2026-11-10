@@ -195,7 +195,8 @@ export function TabStrip({ state }: { state: WindowState }) {
               key={tab.id}
               role="tab"
               aria-selected={active}
-              title={tab.title}
+              data-sleeping={tab.sleeping}
+              title={tab.sleeping ? `${tab.title} (sleeping: reloads when selected)` : tab.title}
               className="no-drag group absolute flex items-center"
               style={{
                 left,
@@ -233,7 +234,10 @@ export function TabStrip({ state }: { state: WindowState }) {
                   />
                 )}
                 {!tab.pinned && (
-                  <span className="min-w-0 flex-1 truncate" style={{ fontSize: 12, color: active ? 'var(--fg)' : 'var(--muted)' }}>
+                  <span
+                    className="min-w-0 flex-1 truncate"
+                    style={{ fontSize: 12, color: active ? 'var(--fg)' : 'var(--muted)', opacity: tab.sleeping ? 0.55 : 1, fontStyle: tab.sleeping ? 'italic' : undefined }}
+                  >
                     {tab.title}
                   </span>
                 )}

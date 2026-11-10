@@ -1,5 +1,5 @@
-import { WebContentsView } from 'electron'
-import type { Session, WebContents } from 'electron'
+import { nativeTheme, WebContentsView } from 'electron'
+import type { Session, WebContents, WebFrameMain } from 'electron'
 import { internalUrl, isInternalUrl, parseInternalUrl } from '@shared/internal'
 import type { CertInfo, SecurityLevel, TabInfo } from '@shared/types'
 import { matchShortcut } from '@shared/shortcuts'
@@ -14,6 +14,29 @@ import { fetchFavicon } from './favicon'
 import { nextZoom } from './zoom'
 
 let seq = 0
+
+/**
+ * What a sleeping tab remembers. The page is replaced by about:blank, which becomes the newest history entry; waking steps back
+ * to the entry the tab was on (so back/forward history and scroll position survive) and removes the placeholder.
+ * `history: false` is a tab created asleep (session restore): it has no history yet and simply loads its address.
+ */
+interface SleepState {
+  history: boolean
+  index: number
+  url: string
+  title: string
+}
+
+/** Script run in a frame to open/close picture-in-picture for the best video on the page. */
+const PIP_SCRIPT = `(async () => {
+  if (document.pictureInPictureElement) { await document.exitPictureInPicture(); return 'closed' }
+  const vids = [...document.querySelectorAll('video')].filter((v) => v.readyState > 0 && v.videoWidth > 0 && !v.disablePictureInPicture)
+  if (!vids.length) return 'none'
+  const area = (v) => v.clientWidth * v.clientHeight
+  vids.sort((a, b) => Number(!a.paused) - Number(!b.paused) || area(b) - area(a))
+  await vids[0].requestPictureInPicture()
+  return 'opened'
+})()`
 
 export class Tab {
   readonly id = ++seq
@@ -30,10 +53,16 @@ export class Tab {
   /** Timestamp of the last real user input in this tab (used to tell user-initiated pop-ups/redirects from scripted ones). */
   lastGestureAt = 0
   pageLoadedAt = 0
+  /** Last time this tab was the visible tab of its window (drives tab sleeping). */
+  lastActiveAt = Date.now()
+  sleeping = false
+  private sleepState: SleepState | null = null
+  private cdpAttached = false
   private lastFaviconUrl = ''
   private destroyed = false
 
-  constructor(window: BmaxWindow, partition: string, url?: string) {
+  /** `lazy`: create the tab asleep (nothing loads until it is first selected) - used by session restore. */
+  constructor(window: BmaxWindow, partition: string, url?: string, opts: { lazy?: boolean } = {}) {
     this.window = window
     this.partition = partition
     const ses: Session = services.sessions.web(partition, { tor: window.tor })
@@ -57,7 +86,12 @@ export class Tab {
     // No ICE candidates over direct UDP: a WebRTC page can never learn or leak the real IP address.
     this.wc.setWebRTCIPHandlingPolicy('disable_non_proxied_udp')
     this.bind()
-    this.loadUrl(url ?? services.settings.get().homepage)
+    const target = url ?? services.settings.get().homepage
+    if (opts.lazy) {
+      this.sleeping = true
+      this.sleepState = { history: false, index: 0, url: target, title: '' }
+    } else this.loadUrl(target)
+    void this.applyColorScheme()
   }
 
   get wc(): WebContents {
@@ -75,6 +109,8 @@ export class Tab {
   // ---------------------------------------------------------------- navigation
 
   loadUrl(url: string): void {
+    this.sleeping = false
+    this.sleepState = null
     this.pendingUrl = toLogicalUrl(url)
     this.window.notify()
     this.wc.loadURL(resolveLoadUrl(url)).catch(() => {
@@ -89,6 +125,10 @@ export class Tab {
     if (this.wc.navigationHistory.canGoForward()) this.wc.navigationHistory.goForward()
   }
   reload(hard = false): void {
+    if (this.sleeping) {
+      this.wake()
+      return
+    }
     if (hard) this.wc.reloadIgnoringCache()
     else this.wc.reload()
   }
@@ -100,9 +140,10 @@ export class Tab {
 
   /** URL shown in the address bar (the failed URL on the error page, the typed URL while loading). */
   get url(): string {
+    if (this.sleepState) return this.sleepState.url
     const current = toLogicalUrl(this.wc.getURL())
     const parsed = parseInternalUrl(current)
-    if (parsed?.page === 'error' || parsed?.page === 'warning') {
+    if (parsed?.page === 'error' || parsed?.page === 'warning' || parsed?.page === 'reader') {
       const failed = new URLSearchParams(parsed.search).get('url')
       if (failed) return failed
     }
@@ -111,6 +152,14 @@ export class Tab {
   }
 
   get title(): string {
+    if (this.sleepState) {
+      if (this.sleepState.title) return this.sleepState.title
+      try {
+        return new URL(this.sleepState.url).host || 'New Tab'
+      } catch {
+        return 'New Tab'
+      }
+    }
     const url = this.url
     const parsed = parseInternalUrl(toLogicalUrl(this.wc.getURL()))
     if (parsed?.page === 'newtab') return 'New Tab'
@@ -119,6 +168,7 @@ export class Tab {
     if (parsed?.page === 'warning') return 'Connection not secure'
     if (parsed?.page === 'tor') return 'Connecting to Tor'
     if (parsed?.page === 'bookmarks') return 'Bookmarks'
+    if (parsed?.page === 'privacy') return 'Privacy policy'
     const t = this.wc.getTitle()
     if (t) return t
     try {
@@ -169,6 +219,7 @@ export class Tab {
       audible: this.audible,
       security: this.security,
       isNewTab: internalPageOf(this.wc.getURL()) === 'newtab',
+      sleeping: this.sleeping,
       container: services.sessions.containerLabel(this.partition),
       bookmarked: services.vault.hasBookmark(url),
       shields: services.shields.tabSummary(this.wc.id, url),
@@ -237,6 +288,7 @@ export class Tab {
     })
     wc.on('dom-ready', () => {
       this.progress = Math.max(this.progress, 0.6)
+      void this.applyColorScheme()
       notify()
     })
     wc.on('did-stop-loading', () => {
@@ -258,8 +310,10 @@ export class Tab {
       this.pageLoadedAt = Date.now()
       upgradedNavigations.delete(wc.id)
       this.pendingUrl = null
-      this.lastFaviconUrl = ''
-      this.favicon = null
+      if (!this.sleeping) {
+        this.lastFaviconUrl = ''
+        this.favicon = null
+      }
       this.applyStoredZoom()
       notify()
     })
@@ -323,6 +377,7 @@ export class Tab {
         if (event.isMainFrame && Date.now() - this.lastGestureAt < 3000) void services.torrents.handleMagnet(target, this)
         return
       }
+      if (this.sameExtensionOrigin(target)) return
       if (!isBrowserHandledUrl(target)) {
         event.preventDefault()
         if (event.isMainFrame) void confirmAndOpenExternal(target, this.window.base)
@@ -356,6 +411,122 @@ export class Tab {
       this.window.openTab(target, { background: details.disposition === 'background-tab', partition: this.partition })
       return { action: 'deny' }
     })
+  }
+
+  // ---------------------------------------------------------------- tab sleeping
+
+  /** A background tab that may be unloaded: nothing playing, loading or open in DevTools, and not an internal page. */
+  canSleep(): boolean {
+    if (this.isDestroyed || this.sleeping || this.window.activeTab === this) return false
+    if (this.audible || this.loading || this.wc.isDevToolsOpened()) return false
+    return /^(https?|file):/i.test(this.url)
+  }
+
+  /** Whether any frame is showing picture-in-picture (such a tab must keep running). */
+  async hasPictureInPicture(): Promise<boolean> {
+    for (const f of this.wc.mainFrame.framesInSubtree) {
+      try {
+        if (await f.executeJavaScript('!!document.pictureInPictureElement')) return true
+      } catch {
+        /* frame went away */
+      }
+    }
+    return false
+  }
+
+  /** Free the page's memory but keep the tab (and its history) so it reloads when selected. */
+  sleep(): boolean {
+    if (!this.canSleep()) return false
+    const nav = this.wc.navigationHistory
+    this.sleepState = { history: true, index: nav.getActiveIndex(), url: this.url, title: this.title }
+    this.sleeping = true
+    this.pendingUrl = null
+    services.shields.resetTab(this.wc.id)
+    services.media.resetTab(this.wc.id)
+    this.wc.loadURL('about:blank').catch(() => undefined)
+    this.window.notify()
+    return true
+  }
+
+  wake(): void {
+    const s = this.sleepState
+    if (!this.sleeping || !s) return
+    this.sleeping = false
+    this.sleepState = null
+    this.lastActiveAt = Date.now()
+    this.window.notify()
+    if (!s.history) {
+      this.loadUrl(s.url)
+      return
+    }
+    // (navigationHistory.restore() refuses webContents that have already loaded a page, so step back through the history instead.)
+    const nav = this.wc.navigationHistory
+    if (s.index >= nav.length() - 1) {
+      this.loadUrl(s.url)
+      return
+    }
+    this.wc.once('did-navigate', () => {
+      if (this.isDestroyed) return
+      try {
+        for (let i = nav.length() - 1; i > nav.getActiveIndex(); i--) if (nav.getEntryAtIndex(i)?.url === 'about:blank') nav.removeEntryAtIndex(i)
+      } catch {
+        /* the placeholder entry may stay; harmless */
+      }
+    })
+    this.pendingUrl = s.url
+    nav.goToIndex(s.index)
+  }
+
+  // ---------------------------------------------------------------- site colour scheme (prefers-color-scheme)
+
+  /** prefers-color-scheme reported to the page: follows the app theme unless the user forced one; Tor windows always say light. */
+  private emulatedScheme(): 'light' | 'dark' {
+    if (this.window.tor) return 'light'
+    const pref = services.settings.get().siteColorScheme
+    if (pref === 'follow') return nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    return pref
+  }
+
+  async applyColorScheme(): Promise<void> {
+    if (this.isDestroyed) return
+    try {
+      if (!this.cdpAttached) {
+        this.wc.debugger.attach('1.3')
+        this.cdpAttached = true
+      }
+      await this.wc.debugger.sendCommand('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: this.emulatedScheme() }] })
+    } catch {
+      /* debugger unavailable (e.g. another client): sites simply keep the default scheme */
+    }
+  }
+
+  // ---------------------------------------------------------------- picture-in-picture
+
+  /** Toggle picture-in-picture for the best video in the page (or in the given frame). Resolves to what happened. */
+  async togglePictureInPicture(frame?: WebFrameMain): Promise<'opened' | 'closed' | 'none' | 'error'> {
+    const frames = frame ? [frame] : [...this.wc.mainFrame.framesInSubtree]
+    let result: 'opened' | 'closed' | 'none' | 'error' = 'none'
+    for (const f of frames) {
+      try {
+        // userGesture=true: requestPictureInPicture needs user activation (this call IS the user's action).
+        const r = (await f.executeJavaScript(PIP_SCRIPT, true)) as string
+        if (r === 'opened' || r === 'closed') return r
+      } catch {
+        result = 'error'
+      }
+    }
+    return result
+  }
+
+  /** An extension page may navigate within its own extension (popup/options pages link to each other). */
+  private sameExtensionOrigin(target: string): boolean {
+    try {
+      const here = new URL(this.wc.getURL())
+      const there = new URL(target)
+      return here.protocol === 'chrome-extension:' && there.protocol === 'chrome-extension:' && here.host === there.host
+    } catch {
+      return false
+    }
   }
 
   // ---------------------------------------------------------------- misc actions

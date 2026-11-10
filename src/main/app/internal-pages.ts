@@ -10,9 +10,14 @@ import type { InternalPage } from '@shared/internal'
 export const DEV_URL: string | null = !app.isPackaged ? (process.env['ELECTRON_RENDERER_URL'] ?? null) : null
 const RENDERER_ROOT = resolve(join(__dirname, '../renderer'))
 
-/** Per-page CSP: only the torrent manager may play media, and only from the loopback streaming server. */
+/**
+ * Per-page CSP. Only the torrent manager may play media (from the loopback streaming server only); only the reader page may show
+ * remote images (article pictures; they load through the tab's own session, so Shields / proxy / Tor apply, and send no referrer).
+ */
 export function cspFor(page: InternalPage): string {
-  return page === 'torrents' ? `${CSP}; media-src http://127.0.0.1:*` : CSP
+  if (page === 'torrents') return `${CSP}; media-src http://127.0.0.1:*`
+  if (page === 'reader') return CSP.replace("img-src 'self' data:", "img-src 'self' data: https: http:")
+  return CSP
 }
 
 export const CSP = [

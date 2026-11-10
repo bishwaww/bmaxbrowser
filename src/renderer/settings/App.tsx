@@ -1,75 +1,20 @@
 import { useState } from 'react'
-import type { ReactNode } from 'react'
 import { DOH_PROVIDERS } from '@shared/privacy'
 import type { DohProviderId } from '@shared/privacy'
 import { SEARCH_ENGINES } from '@shared/search-engines'
 import type { Settings, SettingsPatch } from '@shared/settings'
 import { useSettings } from '../shared-ui/hooks'
+import { AboutSection } from './AboutSection'
 import { DownloadsSection } from './DownloadsSection'
+import { ExtensionsSection } from './ExtensionsSection'
+import { GeneralSection } from './GeneralSection'
 import { ShieldsSection } from './ShieldsSection'
+import { ShortcutsSection } from './ShortcutsSection'
 import { TorrentsSection } from './TorrentsSection'
+import { Group, inputStyle, Radio, Toggle } from './ui'
 
-const SECTIONS = ['Appearance', 'Search', 'Shields', 'Privacy & Security', 'Downloads', 'Torrents', 'Network', 'Tor', 'About'] as const
+const SECTIONS = ['General', 'Appearance', 'Search', 'Shields', 'Privacy & Security', 'Downloads', 'Torrents', 'Network', 'Tor', 'Extensions', 'Shortcuts', 'About'] as const
 type Section = (typeof SECTIONS)[number]
-
-const inputStyle = { background: 'var(--field)', border: '1px solid var(--border)', userSelect: 'text' as const }
-
-function Group({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <section className="mb-6">
-      <h2 className="mb-2 text-sm font-semibold">{title}</h2>
-      <div className="rounded-xl p-4" style={{ background: 'var(--card)', border: '1px solid var(--border)' }}>
-        {children}
-      </div>
-    </section>
-  )
-}
-
-function Radio<T extends string>({
-  name,
-  value,
-  options,
-  onChange
-}: {
-  name: string
-  value: T
-  options: { value: T; label: string; hint?: string | undefined }[]
-  onChange: (v: T) => void
-}) {
-  return (
-    <div role="radiogroup" className="flex flex-col gap-2">
-      {options.map((o) => (
-        <label key={o.value} className="flex items-center gap-3">
-          <input type="radio" name={name} checked={value === o.value} onChange={() => onChange(o.value)} />
-          <span>
-            {o.label}
-            {o.hint && (
-              <span className="block text-xs" style={{ color: 'var(--muted)' }}>
-                {o.hint}
-              </span>
-            )}
-          </span>
-        </label>
-      ))}
-    </div>
-  )
-}
-
-function Toggle({ checked, onChange, label, hint }: { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string }) {
-  return (
-    <label className="flex items-center justify-between gap-6 py-1.5">
-      <span>
-        {label}
-        {hint && (
-          <span className="block text-xs" style={{ color: 'var(--muted)' }}>
-            {hint}
-          </span>
-        )}
-      </span>
-      <input type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    </label>
-  )
-}
 
 function NetworkSection({ settings, update }: { settings: Settings; update: (p: SettingsPatch) => void }) {
   const doh = settings.privacy.doh
@@ -184,7 +129,7 @@ export function App() {
   const settings = useSettings()
   const [section, setSection] = useState<Section>(() => {
     const q = new URLSearchParams(location.search).get('section')
-    return (SECTIONS as readonly string[]).includes(q ?? '') ? (q as Section) : 'Appearance'
+    return (SECTIONS as readonly string[]).includes(q ?? '') ? (q as Section) : 'General'
   })
   if (!settings) return null
   const update = (patch: SettingsPatch) => void window.bmax.cmd('settings.update', patch)
@@ -209,6 +154,8 @@ export function App() {
       <main className="min-w-0 flex-1 overflow-y-auto p-8" style={{ maxWidth: 760 }}>
         <h1 className="mb-6 text-xl font-semibold">{section}</h1>
 
+        {section === 'General' && <GeneralSection settings={settings} update={update} />}
+
         {section === 'Appearance' && (
           <>
             <Group title="Theme">
@@ -220,6 +167,32 @@ export function App() {
                   { value: 'system', label: 'Use system setting' },
                   { value: 'light', label: 'Light' },
                   { value: 'dark', label: 'Dark' }
+                ]}
+              />
+            </Group>
+            <Group title="Websites">
+              <Radio
+                name="sitescheme"
+                value={settings.siteColorScheme}
+                onChange={(siteColorScheme) => update({ siteColorScheme })}
+                options={[
+                  { value: 'follow', label: 'Match the browser theme', hint: 'Websites that support a dark mode switch to it when the browser is dark. Tor windows always report light.' },
+                  { value: 'light', label: 'Always tell sites I prefer light', hint: 'The same answer for everyone: one less detail that sites can use to recognise you.' },
+                  { value: 'dark', label: 'Always tell sites I prefer dark' }
+                ]}
+              />
+            </Group>
+            <Group title="Reader mode">
+              <p className="mb-3 text-sm" style={{ color: 'var(--muted)' }}>
+                Reader mode (Ctrl+Alt+R) shows the main text of an article without clutter. Adjust the font, size and colours on the reader page itself.
+              </p>
+              <Radio
+                name="readerfont"
+                value={settings.reader.font}
+                onChange={(font) => update({ reader: { ...settings.reader, font } })}
+                options={[
+                  { value: 'serif', label: 'Serif font' },
+                  { value: 'sans', label: 'Sans-serif font' }
                 ]}
               />
             </Group>
@@ -336,14 +309,9 @@ export function App() {
         {section === 'Network' && <NetworkSection settings={settings} update={update} />}
         {section === 'Tor' && <TorSection />}
 
-        {section === 'About' && (
-          <Group title="BMAX Browser">
-            <p>Version 0.2.0 (development)</p>
-            <p className="mt-2 text-xs" style={{ color: 'var(--muted)' }}>
-              A privacy-first browser. No telemetry, no analytics, no crash reporting.
-            </p>
-          </Group>
-        )}
+        {section === 'Extensions' && <ExtensionsSection />}
+        {section === 'Shortcuts' && <ShortcutsSection />}
+        {section === 'About' && <AboutSection />}
       </main>
     </div>
   )

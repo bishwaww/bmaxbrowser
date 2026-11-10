@@ -3,6 +3,7 @@ import type { Rectangle } from 'electron'
 import { internalUrl } from '@shared/internal'
 import { clearPrivacyExceptions } from '../net/privacy-handlers'
 import { services } from '../services'
+import { EXT_PARTITION } from '../sessions/SessionManager'
 import { clearFaviconCache } from '../tabs/favicon'
 import { ZoomStore } from '../tabs/zoom'
 import type { Tab } from '../tabs/Tab'
@@ -53,8 +54,15 @@ export class WindowManager {
     return win
   }
 
+  /** A window that runs the installed extensions (their own temporary profile; normal windows never do). */
+  async createExtensionWindow(): Promise<BmaxWindow> {
+    await services.extensions.ensureLoaded()
+    return this.create({ partition: EXT_PARTITION, isolated: true, extensions: true })
+  }
+
   /** Burn: wipe every session, close every tab and window, forget everything, open one fresh window. */
   async burn(): Promise<void> {
+    services.restore.suppress(true)
     const old = this.all()
     const fresh = this.create({})
     for (const w of old) w.base.close()
@@ -63,6 +71,9 @@ export class WindowManager {
     services.downloads.reset()
     services.torrents.reset()
     services.vault.lock()
+    services.reader.clear()
+    services.restore.clear()
+    services.restore.suppress(false)
     this.zoom.clear()
     this.clearClosed()
     clearFaviconCache()
@@ -120,6 +131,7 @@ export class WindowManager {
       empty: true,
       partition: tab.partition,
       isolated: source.isolated,
+      extensions: source.extensions,
       tor: source.tor,
       bounds: { x: Math.round(screenX - 120), y: Math.round(screenY - 16), width, height }
     })

@@ -6,11 +6,17 @@ import { ffmpegStatus, ytdlpStatus } from '../downloads/tools'
 import { allowHttp } from '../net/privacy-handlers'
 import { resolveOmnibox } from '@shared/omnibox'
 import { services } from '../services'
+import { EXT_PARTITION } from '../sessions/SessionManager'
 import type { Tab } from '../tabs/Tab'
+import type { BmaxWindow } from '../windows/BmaxWindow'
 import type { Handlers } from './router'
 
 function tabOf(ctx: { window: { tabById(id: number): Tab | undefined } }, id: number): Tab | undefined {
   return ctx.window.tabById(id)
+}
+
+function assertNotTor(window: BmaxWindow): void {
+  if (window.tor) throw new Error('Extensions are not available in Tor windows.')
 }
 
 export function createHandlers(): Handlers {
@@ -72,6 +78,7 @@ export function createHandlers(): Handlers {
         { label: 'Duplicate', click: () => w.duplicate(t) },
         { label: t.pinned ? 'Unpin' : 'Pin', click: () => w.setPinned(t, !t.pinned) },
         { label: t.muted ? 'Unmute site' : 'Mute site', click: () => t.setMuted(!t.muted) },
+        { label: 'Put tab to sleep', enabled: t.canSleep(), click: () => t.sleep() },
         { type: 'separator' },
         { label: 'Close', click: () => w.closeTab(t) },
         { label: 'Close other tabs', enabled: w.tabs.length > 1, click: () => w.closeOthers(t) },
@@ -79,6 +86,9 @@ export function createHandlers(): Handlers {
         { type: 'separator' },
         { label: 'Reopen closed tab', click: () => w.execute('reopenTab') }
       ]).popup({ window: w.base })
+    },
+    'tab.sleep': (a, ctx) => {
+      tabOf(ctx, a.id)?.sleep()
     },
     'nav.go': (a, { window }) => window.go(a.input, a.newTab),
     'nav.back': (_a, { window }) => window.activeTab?.back(),
@@ -192,6 +202,28 @@ export function createHandlers(): Handlers {
     'shields.refresh': () => {
       void services.shields.refresh()
     },
+    'app.info': () => services.updates.info(),
+    'updates.check': () => services.updates.check(),
+    'updates.download': () => services.updates.download(),
+    'updates.install': () => services.updates.install(),
+    'extensions.list': () => services.extensions.list(),
+    'extensions.installUnpacked': (_a, { window }) => {
+      assertNotTor(window)
+      return services.extensions.installUnpacked(window.base)
+    },
+    'extensions.installCrx': (_a, { window }) => {
+      assertNotTor(window)
+      return services.extensions.installCrx(window.base)
+    },
+    'extensions.setEnabled': (a) => services.extensions.setEnabled(a.id, a.enabled),
+    'extensions.remove': (a) => services.extensions.remove(a.id),
+    'extensions.open': async (a, { window }) => {
+      assertNotTor(window)
+      await services.extensions.ensureLoaded()
+      const url = services.extensions.pageUrl(a.id, a.page)
+      if (url) window.openTab(url, { partition: EXT_PARTITION })
+    },
+    'reader.get': (a) => services.reader.get(a.id),
     'media.info': (_a, { window }) => services.media.panelInfo(window.activeTab),
     'media.probe': (a, { window }) => {
       const tab = window.activeTab

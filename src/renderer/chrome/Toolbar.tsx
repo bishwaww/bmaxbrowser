@@ -306,6 +306,15 @@ export function Toolbar({
         </button>
       )}
       {state.tor && <TorControls />}
+      {state.extensions && (
+        <span
+          className="rounded-full px-2 text-xs font-semibold"
+          style={{ background: 'var(--accent)', color: 'var(--on-accent)', height: 20, lineHeight: '20px' }}
+          title="Extension window: runs your installed extensions. It uses a temporary profile that is deleted when the window closes."
+        >
+          EXT
+        </span>
+      )}
       <button
         className="icon-btn"
         title="Burn: wipe all browsing data and close everything (Ctrl+Shift+Del)"

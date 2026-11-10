@@ -70,9 +70,27 @@ const torrentsSchema = z.object({
   upnp: z.boolean()
 })
 
+const generalSchema = z.object({
+  /** Reopen last session's tabs (only addresses are stored, in session.json). Off by default; never for Tor/isolated windows or containers. */
+  restoreSession: z.boolean(),
+  /** Minutes before a background tab is put to sleep (memory freed); 0 = never. */
+  sleepTabsAfterMin: z.number().int().min(0).max(1440),
+  /** Check GitHub Releases for a new version (about once a day). The only network traffic of the updater. */
+  checkUpdates: z.boolean()
+})
+
+const readerSchema = z.object({
+  font: z.enum(['serif', 'sans']),
+  /** px */
+  size: z.number().int().min(12).max(32),
+  theme: z.enum(['auto', 'light', 'sepia', 'dark'])
+})
+
 export const settingsSchema = z.object({
   searchEngine: z.enum(SEARCH_ENGINES.map((e) => e.id) as [string, ...string[]]),
   theme: z.enum(['system', 'light', 'dark']),
+  /** prefers-color-scheme reported to websites: follow the app theme, or force one (Tor windows always report light). */
+  siteColorScheme: z.enum(['follow', 'light', 'dark']),
   homepage: z.string().max(2048),
   showHomeButton: z.boolean(),
   tiles: z.array(tileSchema).max(24),
@@ -81,6 +99,8 @@ export const settingsSchema = z.object({
   downloads: downloadsSchema,
   torrents: torrentsSchema,
   proxy: proxySchema,
+  general: generalSchema,
+  reader: readerSchema,
   permissions: z.object({
     /** What to do when a site asks and there is no stored decision. */
     defaultAction: z.enum(['ask', 'deny']),
@@ -95,6 +115,7 @@ export type SettingsPatch = z.infer<typeof settingsPatchSchema>
 export const DEFAULT_SETTINGS: Settings = {
   searchEngine: DEFAULT_SEARCH_ENGINE_ID,
   theme: 'system',
+  siteColorScheme: 'follow',
   homepage: NEWTAB_URL,
   showHomeButton: true,
   tiles: [
@@ -125,6 +146,8 @@ export const DEFAULT_SETTINGS: Settings = {
   downloads: { folder: '', askWhere: false, autoUpdateYtdlp: true, maxConcurrent: 3 },
   torrents: { folder: '', downKBps: 0, upKBps: 0, maxConnections: 55, stopSeedingWhenDone: false, askFiles: true, dht: true, lsd: false, upnp: false },
   proxy: { enabled: false, scheme: 'socks5', host: '127.0.0.1', port: 1080 },
+  general: { restoreSession: false, sleepTabsAfterMin: 30, checkUpdates: true },
+  reader: { font: 'serif', size: 19, theme: 'auto' },
   permissions: { defaultAction: 'ask', persist: false }
 }
 

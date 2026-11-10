@@ -1,6 +1,6 @@
-# What BMAX stores and sends (status after Phase 2)
+# What BMAX stores and sends
 
-This page is a draft of the privacy policy; it is updated in every phase and finalised in Phase 6.
+This is the privacy policy of BMAX Browser. It is shown inside the browser (menu → Privacy policy, or `bmax://privacy`) and is kept next to the code in `docs/PRIVACY.md`, so what it says can be checked against what the program does. BMAX has no accounts, no telemetry, no analytics and no crash reporting.
 
 ## Stored on disk
 | Item | Where | When |
@@ -10,6 +10,10 @@ This page is a draft of the privacy policy; it is updated in every phase and fin
 | Per-site permission decisions | `permissions.json` | **only** if "Remember site permission decisions" is on (off by default); turning it off deletes the file |
 | Bookmarks and saved passwords | `vault.bin` | **only** if you create the vault (off by default). AES-256-GCM with a scrypt-derived key from your master password, wrapped again by the OS secure storage (Windows DPAPI / macOS Keychain / Linux keyring). Never uploaded. |
 | Tor's working files (consensus, state) | a temporary folder | only while a Tor window is open; deleted when Tor stops |
+| The addresses of your open tabs (no titles, cookies or page data) | `session.json` | **only** if "Continue where I left off" is on (off by default). Never contains Tor windows, isolated windows or container tabs. Turning the setting off, or Burn, deletes the file. |
+| Extensions you install (their files and an on/off list) | `extensions/` | **only** if you install an extension; remove it in Settings → Extensions to delete its files |
+| Cookies, cache and site data of a **window with extensions** | `Partitions/bmax-ext/` | **only** while such a window is open (see Extensions below); wiped when its last tab closes and on Burn, and the folder is deleted at the next start |
+| Filter lists, a working copy of yt-dlp | `shields/`, `bin/` | see Shields and Downloads below |
 
 ## Never stored
 Browsing history, cookies, localStorage, IndexedDB, service workers, HTTP cache, form data, downloads list.
@@ -87,3 +91,40 @@ Browser users (use the official Tor Browser for that).
   the download folder (default: Downloads/Torrents). Streaming uses a loopback-only server (127.0.0.1) protected by a random
   per-session token and a Host-header check.
 - Torrent metadata is untrusted: torrents whose file paths could escape the download folder are rejected.
+
+## Reader mode
+Reader mode extracts the article from the page you are looking at, in your own browser (Mozilla Readability), and shows it on an internal
+page. The article text is kept in memory only, for the tabs that need it, and is cleared by Burn. Nothing is sent anywhere. Because a web
+page can influence the extracted text, BMAX rebuilds it from an allow-list of safe elements before showing it (no scripts, frames, forms,
+styles or event handlers). Images in the article load like images on the original page: through the same session, so Shields, your proxy
+or Tor apply, and without a referrer. The font, size and colour you choose are saved in `settings.json`.
+
+## Tab sleeping and picture-in-picture
+Background tabs that have been idle for the time you choose (default 30 minutes; Settings → General) are unloaded from memory and reload
+when you select them. This happens only on your computer. Tabs that play audio, show picture-in-picture, are loading or have developer tools
+open are never put to sleep. Picture-in-picture uses the browser's built-in floating video window; it makes no network request of its own.
+
+## Dark mode for websites
+By default BMAX tells websites whether you prefer a light or dark colour scheme according to the theme you chose for the browser. This is one
+more piece of information a site could use to recognise you, so you can choose "Always tell sites I prefer light" in Settings → Appearance
+to give every site the same answer. Tor windows always report light.
+
+## Extensions
+- Extensions are **off until you install one**. BMAX has no extension store: you load a folder or a .crx/.zip file yourself, after seeing what
+  it can access. BMAX does not verify who published a package.
+- Extensions run **only in a "window with extensions"** (Ctrl+Shift+E, marked EXT in the toolbar), never in normal windows, Tor windows, isolated
+  windows or container tabs. An extension can see and change the pages it runs on and can make network requests of its own; only install
+  extensions you trust.
+- **Why a separate window, and what it costs your privacy:** Electron can only run extensions in a browsing session that is stored on disk, while
+  every normal BMAX window keeps cookies, cache and site data in memory only. A window with extensions therefore uses a *temporary profile*: while
+  it is open, its cookies, cache and site data are written to `Partitions/bmax-ext/` in the app data folder. They are wiped when its last tab closes
+  and on Burn, and the whole folder is deleted the next time BMAX starts (so a crash cannot leave them behind for long). If you never open a window
+  with extensions, this folder is never used. Your normal windows are not affected.
+- Burn clears extension data but does not uninstall extensions.
+
+## Updates
+- Once a day (and at start-up), unless you turn it off in Settings → General, BMAX asks GitHub Releases whether a newer version exists. This
+  reveals your IP address, the BMAX version and your operating system to GitHub, like any download. The request uses your proxy setting and
+  never uses Tor. Nothing is downloaded or installed until you click Download / Restart and install in Settings → About; update packages
+  are checked by electron-updater (and, for signed builds, by the publisher name).
+- The portable Windows build and development builds do not update themselves.

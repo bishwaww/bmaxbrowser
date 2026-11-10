@@ -9,6 +9,8 @@ export default defineConfig({
   main: {
     resolve: { alias },
     build: {
+      // Readability's source is inlined (?raw) so it can be injected into pages; bundle it instead of requiring it at run time.
+      externalizeDeps: { exclude: ['@mozilla/readability'] },
       rollupOptions: { input: { index: resolve(__dirname, 'src/main/index.ts') } }
     }
   },
@@ -47,7 +49,9 @@ export default defineConfig({
           tor: resolve(__dirname, 'src/renderer/tor/index.html'),
           bookmarks: resolve(__dirname, 'src/renderer/bookmarks/index.html'),
           downloads: resolve(__dirname, 'src/renderer/downloads/index.html'),
-          torrents: resolve(__dirname, 'src/renderer/torrents/index.html')
+          torrents: resolve(__dirname, 'src/renderer/torrents/index.html'),
+          reader: resolve(__dirname, 'src/renderer/reader/index.html'),
+          privacy: resolve(__dirname, 'src/renderer/privacy/index.html')
         }
       }
     }

@@ -1,10 +1,10 @@
 /** Internal page URLs. Pure helpers — no Electron imports. */
 export const INTERNAL_SCHEME = 'bmax'
-export const INTERNAL_PAGES = ['newtab', 'settings', 'error', 'warning', 'tor', 'bookmarks', 'downloads', 'torrents', 'chrome', 'overlay'] as const
+export const INTERNAL_PAGES = ['newtab', 'settings', 'error', 'warning', 'tor', 'bookmarks', 'downloads', 'torrents', 'reader', 'privacy', 'chrome', 'overlay'] as const
 export type InternalPage = (typeof INTERNAL_PAGES)[number]
 
 /** Pages a user can navigate to from the omnibox / links. */
-export const NAVIGABLE_PAGES: readonly InternalPage[] = ['newtab', 'settings', 'bookmarks', 'downloads', 'torrents']
+export const NAVIGABLE_PAGES: readonly InternalPage[] = ['newtab', 'settings', 'bookmarks', 'downloads', 'torrents', 'privacy']
 
 export function internalUrl(page: InternalPage, search = ''): string {
   return `${INTERNAL_SCHEME}://${page}/${search}`

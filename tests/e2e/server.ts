@@ -99,6 +99,26 @@ export async function startServer(): Promise<TestServer> {
         beacons++
         res.writeHead(204)
         return void res.end()
+      case '/article': {
+        const para = (n: number): string =>
+          `<p>Paragraph ${n}: Privacy-focused browsers keep your browsing data on your own device, block trackers before they load, and make it easy to
+          wipe everything with a single action. This sentence exists so that the text is long enough for the readability heuristics to treat it as the article body.</p>`
+        return send(`<!doctype html><html lang="en"><head><title>Test Article Title</title></head><body>
+          <header><nav><a href="/">Home</a> <a href="/b">Menu</a></nav></header>
+          <aside class="sidebar"><p>Subscribe to our newsletter today!</p></aside>
+          <article><h1>Test Article Title</h1><p class="byline">By Ada Writer</p>
+          ${[1, 2, 3, 4, 5, 6].map(para).join('')}
+          <p>Read more at <a id="inner" href="/b">the other page</a>.</p>
+          <img id="pic" src="/favicon.png" alt="a picture" width="1" height="1">
+          <script>window.__articleScript = true</script>
+          <img src="/favicon.png" onerror="window.__pwned = 1" alt="x">
+          <a id="evil" href="javascript:window.__pwned = 2">evil link</a>
+          <iframe src="/frame"></iframe>
+          ${[7, 8].map(para).join('')}
+          </article><footer><p>Copyright footer</p></footer></body></html>`)
+      }
+      case '/ext-page':
+        return send('<!doctype html><title>Ext Page</title><body><p id="p">extension target</p></body>')
       case '/count':
         return send(String(beacons), 'text/plain')
       default:
