@@ -41,6 +41,8 @@ export interface WindowState {
   /** Resolved theme for the UI ('tor' = purple Tor window). */
   theme: 'light' | 'dark' | 'tor'
   showHomeButton: boolean
+  /** Chrome-style bookmarks bar under the toolbar. */
+  showBookmarksBar: boolean
   /** Tor window: purple theme, strict settings, fail-closed networking. */
   tor: boolean
   /** Extension window: the only kind of window that runs extensions (its own temporary on-disk profile). */

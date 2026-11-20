@@ -11,6 +11,8 @@ export interface Bookmark {
   url: string
   folder: string
   added: number
+  /** Small favicon (data: URL) captured when the page was bookmarked. */
+  icon?: string | undefined
 }
 
 export interface PasswordEntry {

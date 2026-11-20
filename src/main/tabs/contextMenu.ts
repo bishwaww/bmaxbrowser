@@ -44,6 +44,7 @@ export function buildContextMenu(tab: Tab, p: ContextMenuParams): Menu {
     sep()
   }
   if (p.mediaType === 'video') {
+    t.push({ label: 'Download this video…', click: () => win.execute('downloadMedia') })
     t.push({ label: 'Picture in picture', click: () => void tab.togglePictureInPicture(p.frame ?? undefined) })
   }
   if ((p.mediaType === 'video' || p.mediaType === 'audio') && p.srcURL && !p.srcURL.startsWith('blob:')) {
@@ -90,6 +91,8 @@ export function buildContextMenu(tab: Tab, p: ContextMenuParams): Menu {
       { label: 'Print…', click: () => tab.print() }
     )
     sep()
+    const media = services.media.summary(wc.id)
+    if (media.videos + media.audios + media.sniffed > 0) t.push({ label: 'Download video / audio from this page…', click: () => win.execute('downloadMedia') })
     t.push(
       { label: 'Reader mode', click: () => win.execute('readerMode') },
       { label: 'View page source', click: () => win.execute('viewSource') }

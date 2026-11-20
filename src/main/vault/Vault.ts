@@ -2,7 +2,6 @@ import { app, safeStorage } from 'electron'
 import { createCipheriv, createDecipheriv, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import type { ImportedBookmark } from '@shared/bookmarks-import'
 import type { Bookmark, PasswordEntry, VaultStatus } from '@shared/vault'
 
 interface VaultData {
@@ -22,7 +21,7 @@ const SCRYPT = { N: 2 ** 15, r: 8, p: 1, maxmem: 128 * 1024 * 1024 }
 const AUTO_LOCK_MS = 15 * 60 * 1000
 
 /**
- * Optional local vault for bookmarks and passwords (OFF until the user creates it).
+ * Optional local vault for saved passwords (OFF until the user creates it). Bookmarks moved to bookmarks/BookmarkStore.
  * Two layers: AES-256-GCM with a key derived (scrypt) from the master password, and the whole envelope wrapped by the
  * OS keystore through Electron safeStorage. Either layer alone is not enough to read the file.
  */
@@ -162,50 +161,17 @@ export class Vault {
     return this.data
   }
 
-  // ------------------------------------------------------------------ bookmarks
+  // ------------------------------------------------------------------ bookmarks (legacy)
+  /** Bookmarks used to live in the vault. Hand any that are still there to the plain bookmark store, once, after an unlock. */
+  takeBookmarks(): Bookmark[] {
+    if (!this.data || this.data.bookmarks.length === 0) return []
+    const out = this.data.bookmarks
+    this.data.bookmarks = []
+    this.save()
+    return out
+  }
   bookmarks(): Bookmark[] {
     return [...this.need().bookmarks]
-  }
-  hasBookmark(url: string): boolean {
-    return this.data?.bookmarks.some((b) => b.url === url) ?? false
-  }
-  addBookmark(b: { title: string; url: string; folder?: string }): Bookmark {
-    const d = this.need()
-    const existing = d.bookmarks.find((x) => x.url === b.url)
-    if (existing) return existing
-    const bm: Bookmark = { id: randomUUID(), title: b.title.slice(0, 200) || b.url, url: b.url, folder: b.folder ?? '', added: Date.now() }
-    d.bookmarks.push(bm)
-    this.save()
-    this.onChange?.()
-    return bm
-  }
-  removeBookmark(id: string): void {
-    const d = this.need()
-    d.bookmarks = d.bookmarks.filter((b) => b.id !== id)
-    this.save()
-    this.onChange?.()
-  }
-  removeBookmarkByUrl(url: string): void {
-    const d = this.need()
-    d.bookmarks = d.bookmarks.filter((b) => b.url !== url)
-    this.save()
-    this.onChange?.()
-  }
-  importBookmarks(items: ImportedBookmark[]): number {
-    const d = this.need()
-    const known = new Set(d.bookmarks.map((b) => b.url))
-    let added = 0
-    for (const it of items) {
-      if (known.has(it.url)) continue
-      known.add(it.url)
-      d.bookmarks.push({ id: randomUUID(), title: it.title, url: it.url, folder: it.folder, added: Date.now() })
-      added++
-    }
-    if (added) {
-      this.save()
-      this.onChange?.()
-    }
-    return added
   }
 
   // ------------------------------------------------------------------ passwords

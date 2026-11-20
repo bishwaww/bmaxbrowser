@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { OverlayKind, Rect } from '@shared/types'
 import { useSettings, useWindowState } from '../shared-ui/hooks'
+import { BookmarksBar } from './BookmarksBar'
 import { TabStrip } from './TabStrip'
 import { Toolbar } from './Toolbar'
 
@@ -34,11 +35,12 @@ export function App() {
     void window.bmax.cmd('overlay.show', { kind, rect, data })
   }, [])
 
-  if (!state) return <div style={{ height: 84, background: 'var(--strip)' }} />
+  if (!state) return <div style={{ height: '100vh', background: 'var(--strip)' }} />
   return (
-    <div className="flex flex-col" style={{ height: 84, background: 'var(--strip)' }}>
+    <div className="flex flex-col" style={{ height: '100vh', background: 'var(--strip)' }}>
       <TabStrip state={state} />
       <Toolbar state={state} settings={settings} toggleOverlay={toggleOverlay} />
+      {state.showBookmarksBar && <BookmarksBar />}
     </div>
   )
 }

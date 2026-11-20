@@ -24,7 +24,7 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
 - Internal pages use the privileged `bmax://<page>` scheme (prod) / Vite dev server (dev, trusted only in dev). `isInternalUrl()` is the single check.
 - Fetch favicons etc. in main through the *tab's own session* (`ses.fetch`) so proxy/Tor/pipeline apply; UI CSP is `img-src data:`.
 - No telemetry/network except user loads, filter updates, update checks. Chromium background networking is disabled in `app/flags.ts`.
-- Nothing about browsing is written to disk by default. `userData` may hold only settings.json (+ stats counters).
+- Nothing about browsing is written to disk by default. `userData` may hold only settings.json (+ stats counters), plus what the user explicitly creates or opts into: bookmarks.json (plain, no password), vault.bin (passwords), session.json, extensions/, and `persist:` profiles for "Keep me signed in" / extension windows.
 - Popups/menus/find bar are separate overlay WebContentsViews (kind via `bmax://overlay/?kind=…`), re-added on top on show.
 
 ## Phase progress
@@ -60,6 +60,7 @@ Later phases: @ghostery/adblocker-electron, webtorrent (utilityProcess), electro
   - Packaging: `electron-builder.yml` (NSIS+portable, dmg+zip, AppImage+deb; signing/notarization are placeholders), `npm run dist:dir` verified on Windows (`tests/e2e/packaged.spec.ts` runs against dist/win-unpacked and skips if absent). Installer (NSIS) build, macOS and Linux builds NOT run. Icons from `npm run icons`. `npm run verify-binaries`. CI: `.github/workflows/ci.yml` (no e2e: needs binaries) and `release.yml` (tag → draft release). Docs: PACKAGING.md, THIRD_PARTY.md (FFmpeg full build is GPLv3: decide before distributing).
   - Perf: first window visible ~0.3 s after process start (`services.metrics.firstWindowMs`, asserted < 2 s in e2e, dev and packaged).
   - Spellcheck: en-US.bdic bundled (resources/dictionaries, Chromium hunspell repo, hash pinned; downloaded once with the user's approval). Other languages: drop `<lang>.bdic` into that folder. Flag `WinUseBrowserSpellChecker` is disabled so only the bundled dictionary is used (negative control: without the file nothing is flagged; test in phase6.spec.ts uses real key events, `insertText` does not trigger spellcheck).
+  - Post-phase changes (user request): bookmarks moved OUT of the vault into `bookmarks/BookmarkStore` (plain bookmarks.json, no lock; legacy vault bookmarks migrate on unlock); Chrome-style bookmarks bar (`renderer/chrome/BookmarksBar.tsx`, `showBookmarksBar`, Ctrl+Shift+B; chrome height = `BmaxWindow.chromeHeight()`); opt-in `privacy.keepSiteData` maps `bmax-private` to `persist:bmax-main` at start-up (fixes YouTube's empty home page = no cookies); download button always visible on web pages + media rescans; hidden overlays are destroyed after 45 s (memory); default tab sleep 15 min; app icon generated from `resources/icons/source/logo.webp`.
   - Known: real update flow, DoH providers, real Tor circuits and real-internet torrents unverified; fingerprint noise not in Web Workers.
 
 ## Commands

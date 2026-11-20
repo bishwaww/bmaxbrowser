@@ -3,8 +3,8 @@
  *   npx electron scripts/make-icons.cjs
  * Output (committed): resources/icons/icon.png (1024), icon.ico (16-256), icon.icns (16-1024), plus 16..512 PNGs for Linux.
  */
-const { app, BrowserWindow } = require('electron')
-const { mkdirSync, writeFileSync } = require('node:fs')
+const { app, BrowserWindow, nativeImage } = require('electron')
+const { existsSync, mkdirSync, readFileSync, writeFileSync } = require('node:fs')
 const { join, resolve } = require('node:path')
 
 const OUT = resolve(__dirname, '..', 'resources', 'icons')
@@ -29,15 +29,42 @@ const svg = (size) => `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" h
         fill="none" stroke="#ffffff" stroke-width="62" stroke-linejoin="round" stroke-linecap="round"/>
 </svg>`
 
-/** Render once at full size; smaller sizes are downscaled from it. */
+/**
+ * The artwork: resources/icons/source/logo.webp (the BMAX logo: a blue swirl with a white "B", on a white square).
+ * Only the round emblem is kept: it is cropped to a circle and the corners become transparent. LOGO describes where
+ * the circle sits in the source picture (pixels). Without the file, the built-in SVG above is used.
+ */
+const LOGO_FILE = join(OUT, 'source', 'logo.webp')
+const LOGO = { size: 1254, cx: 623, cy: 623, r: 392 }
+
+/**
+ * Draw the artwork on a canvas inside a hidden page and read it back as a PNG. (Capturing the window instead would
+ * limit the picture to the size of the screen.) Smaller icon sizes are downscaled from this master.
+ */
 async function renderMaster(size) {
-  const win = new BrowserWindow({ width: size, height: size, show: false, frame: false, transparent: true, useContentSize: true, webPreferences: { offscreen: true } })
-  const html = `<!doctype html><html><body style="margin:0;background:transparent;overflow:hidden">${svg(size)}</body></html>`
-  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))
-  await new Promise((r) => setTimeout(r, 400))
-  const img = await win.webContents.capturePage({ x: 0, y: 0, width: size, height: size })
+  const win = new BrowserWindow({ width: 200, height: 200, show: false, webPreferences: { offscreen: true } })
+  await win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent('<!doctype html><html><body></body></html>'))
+  const useLogo = existsSync(LOGO_FILE)
+  const src = useLogo
+    ? 'data:image/webp;base64,' + readFileSync(LOGO_FILE).toString('base64')
+    : 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg(size))
+  const dataUrl = await win.webContents.executeJavaScript(`(async () => {
+    const size = ${size}, logo = ${JSON.stringify(LOGO)}, useLogo = ${useLogo};
+    const img = new Image(); img.src = ${JSON.stringify(src)}; await img.decode();
+    const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    if (useLogo) {
+      const d = Math.round(size * 0.97);           // emblem diameter inside the icon
+      const scale = d / (2 * logo.r);
+      ctx.beginPath(); ctx.arc(size / 2, size / 2, d / 2, 0, Math.PI * 2); ctx.clip();
+      ctx.drawImage(img, size / 2 - logo.cx * scale, size / 2 - logo.cy * scale, logo.size * scale, logo.size * scale);
+    } else ctx.drawImage(img, 0, 0, size, size);
+    return canvas.toDataURL('image/png');
+  })()`)
   win.destroy()
-  if (img.isEmpty()) throw new Error('empty capture')
+  const img = nativeImage.createFromDataURL(dataUrl)
+  const got = img.getSize()
+  if (got.width !== size || got.height !== size) throw new Error(`unexpected master size ${got.width}x${got.height}`)
   return img
 }
 

@@ -64,7 +64,7 @@ test('settings has every section, including the new ones', async () => {
   }
   // General: opt-in session restore is OFF by default, tab sleeping is on.
   await expect(p.getByRole('switch', { name: /Continue where I left off/ })).not.toBeChecked()
-  await expect(p.getByLabel('Put background tabs to sleep')).toHaveValue('30')
+  await expect(p.getByLabel('Put background tabs to sleep')).toHaveValue('15')
   await screenshot(h.app, 'tab', 'settings-general.png')
 
   await p.getByRole('button', { name: 'Shortcuts' }).click()
@@ -85,10 +85,10 @@ test('settings changes reach main and persist to the settings file', async () =>
   await go('bmax://settings/')
   const p = (await waitFor(async () => pageOf('settings'), (x) => !!x))!
   await p.getByRole('button', { name: 'General' }).click()
+  await p.getByLabel('Put background tabs to sleep').selectOption('5')
+  await waitFor(() => inMain<number>(h.app, 'return s.settings.get().general.sleepTabsAfterMin'), (v) => v === 5)
   await p.getByLabel('Put background tabs to sleep').selectOption('15')
   await waitFor(() => inMain<number>(h.app, 'return s.settings.get().general.sleepTabsAfterMin'), (v) => v === 15)
-  await p.getByLabel('Put background tabs to sleep').selectOption('30')
-  await waitFor(() => inMain<number>(h.app, 'return s.settings.get().general.sleepTabsAfterMin'), (v) => v === 30)
 })
 
 test('About shows the version and says updates are unavailable in a development build', async () => {

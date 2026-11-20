@@ -198,6 +198,12 @@ export function App() {
             </Group>
             <Group title="Toolbar">
               <Toggle checked={settings.showHomeButton} onChange={(showHomeButton) => update({ showHomeButton })} label="Show home button" />
+              <Toggle
+                checked={settings.showBookmarksBar}
+                onChange={(showBookmarksBar) => update({ showBookmarksBar })}
+                label="Show bookmarks bar"
+                hint="A row of your bookmarks under the address bar (Ctrl+Shift+B)."
+              />
             </Group>
           </>
         )}
@@ -257,6 +263,14 @@ export function App() {
                 hint="Tells sites not to sell or share your data. (BMAX never sends Do Not Track.)"
               />
             </Group>
+            <Group title="Staying signed in">
+              <Toggle
+                checked={settings.privacy.keepSiteData}
+                onChange={(keepSiteData) => setPrivacy({ keepSiteData })}
+                label="Keep me signed in (remember cookies and site data)"
+                hint="Off by default: BMAX forgets every site when it closes, so you are signed out everywhere and sites such as YouTube show an empty home page. Turn this on to behave like an ordinary browser: cookies, site data and cache of normal windows are then stored on this computer. Takes effect the next time BMAX starts. Tor, isolated and container tabs never keep anything. Burn still wipes it all."
+              />
+            </Group>
             <Group title="Site permissions (camera, microphone, location, notifications)">
               <Radio
                 name="perm"
@@ -278,7 +292,7 @@ export function App() {
             </Group>
             <Group title="Bookmarks & passwords">
               <p className="mb-3" style={{ color: 'var(--muted)' }}>
-                Off until you set up the local encrypted vault.
+                Bookmarks are always available (stored on this computer, not encrypted). Saved passwords are off until you set up the encrypted vault.
               </p>
               <button
                 className="rounded-full px-4 py-2"

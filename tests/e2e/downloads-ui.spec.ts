@@ -53,11 +53,18 @@ interface Job {
 }
 const jobs = (): Promise<Job[]> => inMain(h.app, 'return s.downloads.list()')
 
-test('the address-bar download button appears only on pages with media', async () => {
+test('the address-bar download button is always there on web pages and lights up when media is detected', async () => {
   await go(`${media.origin}/plain-page`)
-  await expect(chromePage().getByLabel('Download media from this page')).toHaveCount(0)
+  await expect(chromePage().getByLabel('Download media from this page')).toHaveAttribute('data-has-media', 'false')
   await go(`${media.origin}/media-page`)
-  await expect(chromePage().getByLabel('Download media from this page')).toBeVisible({ timeout: 8000 })
+  await expect(chromePage().getByLabel('Download media from this page')).toHaveAttribute('data-has-media', 'true', { timeout: 8000 })
+  // Not on internal pages.
+  await inMain(h.app, `s.windows.focused().openTab('bmax://newtab')`)
+  await expect(chromePage().getByLabel('Download media from this page')).toHaveCount(0)
+  // Let the new tab finish loading before closing it (closing a page while Playwright is still attaching to it drops the test connection).
+  await sleep(1200)
+  await inMain(h.app, `const w = s.windows.focused(); w.closeTab(w.activeTab)`)
+  await sleep(300)
 })
 
 test('media panel: analyse, choose options and start a video download', async () => {

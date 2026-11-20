@@ -81,13 +81,16 @@ export function MenuView() {
       <Row label="View page source" hint={`${mod}U`} onClick={act('viewSource')} />
       <Row label="Developer tools" hint="F12" onClick={act('devtools')} />
       <Sep />
+      <Row label="Bookmarks" hint={`${mod}Shift+O`} onClick={act('bookmarks')} />
+      <Row label={state?.showBookmarksBar ? 'Hide bookmarks bar' : 'Show bookmarks bar'} hint={`${mod}Shift+B`} onClick={act('toggleBookmarksBar')} />
       <Row
-        label="Bookmarks & passwords"
+        label="Saved passwords"
         onClick={() => {
-          void window.bmax.cmd('tab.new', { url: 'bmax://bookmarks' })
+          void window.bmax.cmd('tab.new', { url: 'bmax://bookmarks/?tab=passwords' })
           void window.bmax.cmd('overlay.hide', { kind: 'menu' })
         }}
       />
+      <Row label="Download video from this page" onClick={act('downloadMedia')} />
       <Row label="Downloads" hint={`${mod}J`} onClick={act('downloads')} />
       <Row
         label="Torrents"

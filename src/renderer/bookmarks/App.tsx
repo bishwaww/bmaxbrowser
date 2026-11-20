@@ -33,10 +33,11 @@ function Setup({ onDone }: { onDone: () => void }) {
     else setErr(r.error ?? 'Could not create the vault.')
   }
   return (
-    <Card title="Set up your local vault">
+    <Card title="Set up the password vault">
       <p className="mb-3" style={{ color: 'var(--muted)' }}>
-        Bookmarks and saved passwords are <strong>off by default</strong>. If you turn them on, they are stored only on this computer, encrypted with a
-        key derived from a master password you choose and wrapped by your operating system&apos;s secure storage. Nothing is ever uploaded.
+        Saved passwords are <strong>off by default</strong>. If you turn them on, they are stored only on this computer, encrypted with a key derived
+        from a master password you choose and wrapped by your operating system&apos;s secure storage. Nothing is ever uploaded. (Bookmarks do not need
+        this: they are always available on the Bookmarks tab.)
       </p>
       <p className="mb-4" style={{ color: 'var(--muted)' }}>
         The master password cannot be recovered. If you forget it, the vault can only be deleted.
@@ -63,7 +64,7 @@ function Unlock({ onDone }: { onDone: () => void }) {
     else setErr(r.error ?? 'Could not unlock.')
   }
   return (
-    <Card title="Vault is locked">
+    <Card title="The password vault is locked">
       <form onSubmit={submit} className="flex max-w-sm flex-col gap-3">
         <input type="password" autoFocus placeholder="Master password" value={pw} onChange={(e) => setPw(e.target.value)} className="rounded-md px-3 py-2" style={field} />
         {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
@@ -82,6 +83,7 @@ function Bookmarks({ pendingAdd }: { pendingAdd: { url: string; title: string } 
   const [pending, setPending] = useState(pendingAdd)
   const load = useCallback(() => void window.bmax.cmd('bookmarks.list').then(setItems), [])
   useEffect(load, [load])
+  useEffect(() => window.bmax.onPush((m) => m.type === 'bookmarks' && load()), [load])
   const shown = items.filter((b) => !q || (b.title + ' ' + b.url + ' ' + b.folder).toLowerCase().includes(q.toLowerCase()))
   return (
     <>
@@ -119,7 +121,7 @@ function Bookmarks({ pendingAdd }: { pendingAdd: { url: string; title: string } 
           </button>
         </div>
         {msg && <p className="mb-3 text-sm" style={{ color: 'var(--muted)' }}>{msg}</p>}
-        {shown.length === 0 && <p style={{ color: 'var(--muted)' }}>No bookmarks yet. Press Ctrl+D on a page to add one.</p>}
+        {shown.length === 0 && <p style={{ color: 'var(--muted)' }}>No bookmarks yet. Click the ☆ star in the toolbar (or press Ctrl+D) on a page to add one.</p>}
         <ul>
           {shown.map((b) => (
             <li key={b.id} className="group flex items-center gap-3 rounded-md px-2 py-2 hover:bg-[var(--hover)]">
@@ -262,7 +264,7 @@ function DangerZone({ onDeleted }: { onDeleted: () => void }) {
     <Card title="Delete vault">
       {!open ? (
         <button className="rounded-full px-4 py-2" style={{ border: '1px solid var(--danger)', color: 'var(--danger)' }} onClick={() => setOpen(true)}>
-          Delete vault and all saved data…
+          Delete the vault and all saved passwords…
         </button>
       ) : (
         <form
@@ -274,7 +276,7 @@ function DangerZone({ onDeleted }: { onDeleted: () => void }) {
             else setErr(r.error ?? 'Failed')
           }}
         >
-          <p style={{ color: 'var(--muted)' }}>This permanently deletes every bookmark and password in the vault. It cannot be undone.</p>
+          <p style={{ color: 'var(--muted)' }}>This permanently deletes every saved password. It cannot be undone. Your bookmarks are not affected.</p>
           <input type="password" placeholder="Master password" value={pw} onChange={(e) => setPw(e.target.value)} className="rounded-md px-3 py-2" style={field} />
           {err && <p style={{ color: 'var(--danger)' }}>{err}</p>}
           <button type="submit" className="self-start rounded-full px-4 py-2" style={{ background: 'var(--danger)', color: 'var(--on-accent)' }}>
@@ -288,21 +290,23 @@ function DangerZone({ onDeleted }: { onDeleted: () => void }) {
 
 export function App() {
   const [status, setStatus] = useState<VaultStatus | null>(null)
-  const [tab, setTab] = useState<'bookmarks' | 'passwords'>('bookmarks')
+  const q = new URLSearchParams(location.search)
+  const [tab, setTab] = useState<'bookmarks' | 'passwords'>(q.get('tab') === 'passwords' ? 'passwords' : 'bookmarks')
   const refresh = useCallback(() => void window.bmax.cmd('vault.status').then(setStatus), [])
   useEffect(refresh, [refresh])
+  useEffect(() => {
+    document.title = tab === 'bookmarks' ? 'Bookmarks' : 'Saved passwords'
+  }, [tab])
 
-  const q = new URLSearchParams(location.search)
   const add = q.get('add')
   const pendingAdd = add ? { url: add, title: q.get('title') ?? '' } : null
 
-  if (!status) return null
   return (
     <div className="h-full overflow-y-auto" style={{ background: 'var(--field)' }}>
       <main className="mx-auto max-w-3xl p-8">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Bookmarks &amp; passwords</h1>
-          {status.unlocked && (
+          <h1 className="text-xl font-semibold">{tab === 'bookmarks' ? 'Bookmarks' : 'Saved passwords'}</h1>
+          {tab === 'passwords' && status?.unlocked && (
             <button
               className="rounded-full px-4 py-2"
               style={{ border: '1px solid var(--border)' }}
@@ -316,35 +320,41 @@ export function App() {
           )}
         </div>
 
-        {!status.available && (
-          <Card title="Not available on this system">
-            <p style={{ color: 'var(--muted)' }}>
-              BMAX needs your operating system&apos;s secure storage (Windows DPAPI, macOS Keychain, or a Linux keyring) to protect the vault, and it
-              is not available here. The vault stays off rather than storing anything unprotected.
-            </p>
-          </Card>
-        )}
-        {status.available && !status.exists && <Setup onDone={refresh} />}
-        {status.available && status.exists && !status.unlocked && <Unlock onDone={refresh} />}
+        <div className="mb-4 flex gap-2" role="tablist">
+          {(['bookmarks', 'passwords'] as const).map((t) => (
+            <button
+              key={t}
+              role="tab"
+              aria-selected={tab === t}
+              className="rounded-full px-4 py-2 capitalize"
+              style={{ background: tab === t ? 'var(--active)' : undefined }}
+              onClick={() => setTab(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
 
-        {status.unlocked && (
+        {tab === 'bookmarks' && <Bookmarks pendingAdd={pendingAdd} />}
+
+        {tab === 'passwords' && status && (
           <>
-            <div className="mb-4 flex gap-2" role="tablist">
-              {(['bookmarks', 'passwords'] as const).map((t) => (
-                <button
-                  key={t}
-                  role="tab"
-                  aria-selected={tab === t}
-                  className="rounded-full px-4 py-2 capitalize"
-                  style={{ background: tab === t ? 'var(--active)' : undefined }}
-                  onClick={() => setTab(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            {tab === 'bookmarks' ? <Bookmarks pendingAdd={pendingAdd} /> : <Passwords />}
-            <DangerZone onDeleted={refresh} />
+            {!status.available && (
+              <Card title="Not available on this system">
+                <p style={{ color: 'var(--muted)' }}>
+                  BMAX needs your operating system&apos;s secure storage (Windows DPAPI, macOS Keychain, or a Linux keyring) to protect saved passwords, and
+                  it is not available here. The vault stays off rather than storing anything unprotected.
+                </p>
+              </Card>
+            )}
+            {status.available && !status.exists && <Setup onDone={refresh} />}
+            {status.available && status.exists && !status.unlocked && <Unlock onDone={refresh} />}
+            {status.unlocked && (
+              <>
+                <Passwords />
+                <DangerZone onDeleted={refresh} />
+              </>
+            )}
           </>
         )}
       </main>

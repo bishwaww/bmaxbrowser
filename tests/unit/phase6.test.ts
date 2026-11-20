@@ -85,7 +85,7 @@ describe('reader mode data', () => {
 describe('Phase 6 settings and pages', () => {
   it('new settings have safe defaults (session restore OFF, site colour scheme follows theme)', () => {
     expect(DEFAULT_SETTINGS.general.restoreSession).toBe(false)
-    expect(DEFAULT_SETTINGS.general.sleepTabsAfterMin).toBe(30)
+    expect(DEFAULT_SETTINGS.general.sleepTabsAfterMin).toBe(15)
     expect(DEFAULT_SETTINGS.siteColorScheme).toBe('follow')
     expect(settingsSchema.safeParse(DEFAULT_SETTINGS).success).toBe(true)
   })

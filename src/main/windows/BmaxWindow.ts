@@ -16,7 +16,7 @@ import { services } from '../services'
 import { PRIVATE_PARTITION } from '../sessions/SessionManager'
 import { Tab } from '../tabs/Tab'
 import { OverlayManager } from './OverlayManager'
-import { CHROME_H, chromeColors, TABSTRIP_H } from './theme'
+import { BOOKMARKS_H, CHROME_H, chromeColors, TABSTRIP_H } from './theme'
 
 export interface WindowOptions {
   /** URL for the first tab; omitted → homepage. */
@@ -137,11 +137,16 @@ export class BmaxWindow {
     return [w, h]
   }
 
+  /** Height of the browser UI above the page: tab strip + toolbar (+ bookmarks bar when shown). */
+  chromeHeight(): number {
+    return CHROME_H + (services.settings.get().showBookmarksBar ? BOOKMARKS_H : 0)
+  }
+
   layout(): void {
     if (this.disposed) return
     const [w, h] = this.contentSize()
     const hideChrome = this.base.isFullScreen()
-    const chromeH = hideChrome ? 0 : CHROME_H
+    const chromeH = hideChrome ? 0 : this.chromeHeight()
     this.chromeView.setVisible(!hideChrome)
     this.chromeView.setBounds({ x: 0, y: 0, width: w, height: chromeH })
     this.activeTab?.view.setBounds({ x: 0, y: chromeH, width: w, height: Math.max(0, h - chromeH) })
@@ -171,6 +176,7 @@ export class BmaxWindow {
       extensions: this.extensions,
       theme: this.tor ? 'tor' : nativeTheme.shouldUseDarkColors ? 'dark' : 'light',
       showHomeButton: services.settings.get().showHomeButton,
+      showBookmarksBar: services.settings.get().showBookmarksBar,
       tor: this.tor
     }
   }
@@ -342,7 +348,7 @@ export class BmaxWindow {
   showFind(): void {
     if (!this.activeTab) return
     const [cw] = this.contentSize()
-    this.overlays.show('find', { x: Math.max(8, cw - 392), y: CHROME_H + 6, width: 380, height: 48 }, { text: this.lastFindText })
+    this.overlays.show('find', { x: Math.max(8, cw - 392), y: this.chromeHeight() + 6, width: 380, height: 48 }, { text: this.lastFindText })
   }
 
   runFind(text: string, forward: boolean, findNext: boolean): void {
@@ -369,7 +375,7 @@ export class BmaxWindow {
   // ---------------------------------------------------------------- permission prompt
 
   showPermissionPrompt(data: PermissionPromptData): void {
-    this.overlays.show('permission', { x: 12, y: CHROME_H + 4, width: 380, height: 150 }, data)
+    this.overlays.show('permission', { x: 12, y: this.chromeHeight() + 4, width: 380, height: 150 }, data)
   }
 
   // ---------------------------------------------------------------- fullscreen
@@ -483,6 +489,17 @@ export class BmaxWindow {
       case 'bookmarkPage':
         this.toggleBookmark()
         return
+      case 'toggleBookmarksBar':
+        services.settings.update({ showBookmarksBar: !services.settings.get().showBookmarksBar })
+        return
+      case 'bookmarks':
+        this.openInternal('bookmarks')
+        return
+      case 'downloadMedia': {
+        const [cw] = this.contentSize()
+        if (tab) this.overlays.show('media', { x: Math.max(8, cw - 420), y: this.chromeHeight() + 4, width: 408, height: 420 }, {})
+        return
+      }
       case 'readerMode':
         if (tab && !tab.sleeping) void services.reader.open(tab)
         return
@@ -514,15 +531,9 @@ export class BmaxWindow {
   private toggleBookmark(): void {
     const tab = this.activeTab
     if (!tab || !/^https?:\/\//i.test(tab.url)) return
-    const vault = services.vault
-    if (!vault.isUnlocked()) {
-      // Locked or not set up: the bookmarks page offers to create/unlock the vault, then adds the page.
-      const q = new URLSearchParams({ add: tab.url, title: tab.title })
-      this.openTab(internalUrl('bookmarks', `?${q.toString()}`))
-      return
-    }
-    if (vault.hasBookmark(tab.url)) vault.removeBookmarkByUrl(tab.url)
-    else vault.addBookmark({ title: tab.title, url: tab.url })
+    const store = services.bookmarks
+    if (store.has(tab.url)) store.removeByUrl(tab.url)
+    else store.add({ title: tab.title, url: tab.url, icon: tab.favicon })
     this.notify()
   }
 

@@ -60,7 +60,8 @@ export function MediaView() {
   useEffect(() => {
     void window.bmax.cmd('media.info').then((i) => {
       setInfo(i)
-      if (i.supported && i.ytdlp.present && (i.summary.videos + i.summary.audios + i.summary.sniffed > 0) && !(i.viaTor && !i.torReady)) runProbe(i.url)
+      // Opening the panel is a request to download: always ask yt-dlp about the page (it knows far more sites than the page scan can detect).
+      if (i.supported && i.ytdlp.present && !(i.viaTor && !i.torReady)) runProbe(i.url)
       if (i.summary.videos + i.summary.audios + i.summary.sniffed === 0 && i.summary.images > 0) setTab('images')
     })
     void window.bmax.cmd('media.images', { minWidth: 0 }).then(setImages)
@@ -153,7 +154,7 @@ export function MediaView() {
               {probing && <p style={{ color: 'var(--muted)', fontSize: 12 }}>Looking up this page with yt-dlp…</p>}
               {!probe && !probing && info.ytdlp.present && !blocked && (
                 <div className="mb-3">
-                  {probeError && <p style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>{hasMedia ? 'yt-dlp does not support this page directly. ' : ''}{probeError}</p>}
+                  {probeError && <p style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>{hasMedia ? 'yt-dlp does not support this page directly. ' : 'No downloadable video or audio was found on this page. '}{probeError}</p>}
                   {!hasMedia && !probeError && <p style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>No video or audio was detected on this page.</p>}
                   <button className="rounded-full px-4 py-2" style={{ border: '1px solid var(--border)' }} onClick={() => runProbe(info.url)}>
                     Check this page with yt-dlp

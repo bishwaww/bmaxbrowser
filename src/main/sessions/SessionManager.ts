@@ -18,6 +18,8 @@ const SHIELDS_PRELOAD = createRequire(__filename).resolve('@ghostery/adblocker-e
 /** No "persist:" prefix → memory-only partitions: no cookies/cache/localStorage/IndexedDB ever written to disk. */
 export const PRIVATE_PARTITION = 'bmax-private'
 export const UI_PARTITION = 'bmax-ui'
+/** Real partition behind PRIVATE_PARTITION when the user opted in to keeping site data ("stay signed in"). */
+export const KEEP_PARTITION = 'persist:bmax-main'
 /**
  * Electron refuses to load extensions into memory-only sessions, so extension windows use this PERSISTENT partition. It is a
  * temporary profile: wiped when its last tab closes, on Burn and on quit, and its folder is deleted at the next start.
@@ -54,6 +56,8 @@ export class SessionManager {
   private ui_: Session | null = null
   private counter = 0
   private torSocksPort = 0
+  /** Fixed for this run: whether normal windows keep cookies and site data on disk (opt-in setting, read at start-up). */
+  readonly keepSiteData: boolean
 
   constructor(
     private deps: {
@@ -62,7 +66,9 @@ export class SessionManager {
       certs: CertCache
       settings: SettingsStore
     }
-  ) {}
+  ) {
+    this.keepSiteData = deps.settings.get().privacy.keepSiteData
+  }
 
   /** Session for browser UI (chrome, overlays): internal pages only, all network blocked. */
   ui(): Session {
@@ -90,7 +96,8 @@ export class SessionManager {
     const existing = this.entries.get(partition)
     if (existing) return existing.ses
     const tor = opts.tor ?? false
-    const ses = session.fromPartition(partition)
+    // The shared normal-window session is memory-only unless the user chose to keep site data between runs.
+    const ses = session.fromPartition(partition === PRIVATE_PARTITION && this.keepSiteData ? KEEP_PARTITION : partition)
     registerInternalProtocol(ses)
     this.deps.certs.attach(ses)
     this.deps.permissions.attach(ses, tor)
@@ -208,6 +215,12 @@ export class SessionManager {
       if (!e.keep) this.entries.delete(partition)
       void wipe(e.ses)
     }
+  }
+
+  /** The user turned "keep site data" off: wipe what the normal-window session stored (its folder is deleted at the next start). */
+  forgetKeptSiteData(): void {
+    const e = this.entries.get(PRIVATE_PARTITION)
+    if (e && this.keepSiteData) void wipe(e.ses)
   }
 
   /** Burn: wipe everything in every session right now. */

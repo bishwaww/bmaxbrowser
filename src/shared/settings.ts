@@ -22,6 +22,11 @@ const privacySchema = z.object({
   fingerprintProtection: z.boolean(),
   sendGpc: z.boolean(),
   uniformUserAgent: z.boolean(),
+  /**
+   * Keep cookies and site data of normal windows after BMAX closes (stay signed in), like an ordinary browser.
+   * OFF by default: normal windows are memory-only. Applies from the next start. Never applies to Tor/isolated/container tabs.
+   */
+  keepSiteData: z.boolean().default(false),
   doh: dohSchema
 })
 
@@ -93,6 +98,7 @@ export const settingsSchema = z.object({
   siteColorScheme: z.enum(['follow', 'light', 'dark']),
   homepage: z.string().max(2048),
   showHomeButton: z.boolean(),
+  showBookmarksBar: z.boolean(),
   tiles: z.array(tileSchema).max(24),
   privacy: privacySchema,
   shields: shieldsSchema,
@@ -118,6 +124,7 @@ export const DEFAULT_SETTINGS: Settings = {
   siteColorScheme: 'follow',
   homepage: NEWTAB_URL,
   showHomeButton: true,
+  showBookmarksBar: true,
   tiles: [
     { id: 'ddg', title: 'DuckDuckGo', url: 'https://duckduckgo.com/' },
     { id: 'wikipedia', title: 'Wikipedia', url: 'https://www.wikipedia.org/' },
@@ -131,6 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
     fingerprintProtection: true,
     sendGpc: true,
     uniformUserAgent: true,
+    keepSiteData: false,
     doh: { mode: 'secure', provider: 'quad9', customUrl: '' }
   },
   shields: {
@@ -146,7 +154,7 @@ export const DEFAULT_SETTINGS: Settings = {
   downloads: { folder: '', askWhere: false, autoUpdateYtdlp: true, maxConcurrent: 3 },
   torrents: { folder: '', downKBps: 0, upKBps: 0, maxConnections: 55, stopSeedingWhenDone: false, askFiles: true, dht: true, lsd: false, upnp: false },
   proxy: { enabled: false, scheme: 'socks5', host: '127.0.0.1', port: 1080 },
-  general: { restoreSession: false, sleepTabsAfterMin: 30, checkUpdates: true },
+  general: { restoreSession: false, sleepTabsAfterMin: 15, checkUpdates: true },
   reader: { font: 'serif', size: 19, theme: 'auto' },
   permissions: { defaultAction: 'ask', persist: false }
 }

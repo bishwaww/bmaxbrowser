@@ -8,7 +8,9 @@ This is the privacy policy of BMAX Browser. It is shown inside the browser (menu
 | Settings (theme, search engine, home page, shortcut tiles, privacy toggles, DNS/proxy choices) | `settings.json` in the app data folder | always |
 | Lifetime counters: ads blocked, trackers blocked, estimated time saved (3 numbers) | `stats.json` | always |
 | Per-site permission decisions | `permissions.json` | **only** if "Remember site permission decisions" is on (off by default); turning it off deletes the file |
-| Bookmarks and saved passwords | `vault.bin` | **only** if you create the vault (off by default). AES-256-GCM with a scrypt-derived key from your master password, wrapped again by the OS secure storage (Windows DPAPI / macOS Keychain / Linux keyring). Never uploaded. |
+| Bookmarks (title, address, small site icon) | `bookmarks.json` | **only** once you bookmark a page. Stored as a plain, unencrypted file so they are always available without a password; delete a bookmark to remove it. Burn does not delete bookmarks. |
+| Cookies, site data and cache of normal windows | `Partitions/bmax-main/` | **only** if you turn on "Keep me signed in" (off by default; Settings → Privacy & Security). Wiped by Burn and when you turn the setting off; the folder is deleted at the next start while it is off. Never used by Tor, isolated or container tabs. |
+| Saved passwords | `vault.bin` | **only** if you create the vault (off by default). AES-256-GCM with a scrypt-derived key from your master password, wrapped again by the OS secure storage (Windows DPAPI / macOS Keychain / Linux keyring). Never uploaded. |
 | Tor's working files (consensus, state) | a temporary folder | only while a Tor window is open; deleted when Tor stops |
 | The addresses of your open tabs (no titles, cookies or page data) | `session.json` | **only** if "Continue where I left off" is on (off by default). Never contains Tor windows, isolated windows or container tabs. Turning the setting off, or Burn, deletes the file. |
 | Extensions you install (their files and an on/off list) | `extensions/` | **only** if you install an extension; remove it in Settings → Extensions to delete its files |
@@ -17,7 +19,7 @@ This is the privacy policy of BMAX Browser. It is shown inside the browser (menu
 
 ## Never stored
 Browsing history, cookies, localStorage, IndexedDB, service workers, HTTP cache, form data, downloads list.
-Web content lives in memory-only Electron partitions (no `persist:` prefix) and disappears when the tab/window/app closes.
+Web content lives in memory-only Electron partitions (no `persist:` prefix) and disappears when the tab/window/app closes (unless you opted in to "Keep me signed in", see the table above; signed-out sites such as YouTube show an empty home page until then, because they see a brand-new visitor every time).
 Container tabs, isolated windows and Tor windows get their own partitions, wiped when their last tab closes.
 **Burn** wipes every partition (cookies, storage, cache, auth, DNS cache), forgets permissions, zoom and closed tabs, locks the
 vault and closes all windows. Closed-tab history (Ctrl+Shift+T) and per-site zoom are kept in memory only.

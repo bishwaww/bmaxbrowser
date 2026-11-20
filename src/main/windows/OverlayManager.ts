@@ -16,7 +16,12 @@ interface Entry {
   pending: PushMessage | null
   visible: boolean
   rect: Rect
+  /** Frees the overlay (its own renderer process) after it has been hidden for a while. */
+  idle: NodeJS.Timeout | null
 }
+
+/** A hidden overlay is destroyed after this long; it is recreated on demand (keeps memory use low). */
+const IDLE_RELEASE_MS = 45_000
 
 /** Overlays that close when the user clicks elsewhere. 'find' and 'permission' stay until dismissed. */
 const TRANSIENT: OverlayKind[] = ['menu', 'cert', 'suggest', 'shields', 'media']
@@ -34,7 +39,11 @@ export class OverlayManager {
 
   private ensure(kind: OverlayKind): Entry {
     const existing = this.entries.get(kind)
-    if (existing) return existing
+    if (existing) {
+      if (existing.idle) clearTimeout(existing.idle)
+      existing.idle = null
+      return existing
+    }
     const view = new WebContentsView({
       webPreferences: {
         session: services.sessions.ui(),
@@ -48,7 +57,7 @@ export class OverlayManager {
       }
     })
     view.setBackgroundColor('#00000000')
-    const entry: Entry = { view, ready: false, pending: null, visible: false, rect: { x: 0, y: 0, width: 1, height: 1 } }
+    const entry: Entry = { view, ready: false, pending: null, visible: false, rect: { x: 0, y: 0, width: 1, height: 1 }, idle: null }
     this.entries.set(kind, entry)
     registry.register(view.webContents, { role: 'overlay', window: this.win, kind })
     view.webContents.on('blur', () => {
@@ -97,6 +106,19 @@ export class OverlayManager {
     e.visible = false
     if (this.win.base.contentView.children.includes(e.view)) this.win.base.contentView.removeChildView(e.view)
     this.win.sendToChrome({ type: 'overlay-closed', kind })
+    if (e.idle) clearTimeout(e.idle)
+    e.idle = setTimeout(() => this.release(kind), IDLE_RELEASE_MS)
+    e.idle.unref()
+  }
+
+  /** Destroy a hidden overlay's view; the next show() creates a fresh one. */
+  private release(kind: OverlayKind): void {
+    const e = this.entries.get(kind)
+    if (!e || e.visible) return
+    this.entries.delete(kind)
+    const wc = e.view.webContents
+    registry.unregister(wc.id)
+    if (!wc.isDestroyed()) wc.close()
   }
 
   hideTransient(except?: OverlayKind): void {
@@ -152,6 +174,7 @@ export class OverlayManager {
 
   destroy(): void {
     for (const e of this.entries.values()) {
+      if (e.idle) clearTimeout(e.idle)
       const wc = e.view.webContents
       registry.unregister(wc.id)
       if (!wc.isDestroyed()) wc.close()

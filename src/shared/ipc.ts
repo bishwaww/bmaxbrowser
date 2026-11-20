@@ -65,7 +65,10 @@ export const commandSchemas = {
       'downloads',
       'readerMode',
       'pictureInPicture',
-      'newExtensionWindow'
+      'newExtensionWindow',
+      'toggleBookmarksBar',
+      'bookmarks',
+      'downloadMedia'
     ])
   }),
   'overlay.show': z.object({ kind, rect, data: z.unknown().optional() }),
@@ -148,6 +151,7 @@ export const commandSchemas = {
   'bookmarks.add': z.object({ title: z.string().max(200), url: z.string().max(2048), folder: z.string().max(200).optional() }),
   'bookmarks.remove': z.object({ id: z.string().max(64) }),
   'bookmarks.import': empty,
+  'bookmarks.contextMenu': z.object({ id: z.string().max(64) }),
   'passwords.list': empty,
   'passwords.save': z.object({ id: z.string().max(64).optional(), site: z.string().min(1).max(253), username: z.string().max(256), password: z.string().min(1).max(1024) }),
   'passwords.remove': z.object({ id: z.string().max(64) }),
@@ -302,10 +306,11 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'vault.unlock': P,
   'vault.lock': P,
   'vault.destroy': P,
-  'bookmarks.list': P,
+  'bookmarks.list': ['page', 'chrome'],
   'bookmarks.add': P,
   'bookmarks.remove': P,
   'bookmarks.import': P,
+  'bookmarks.contextMenu': C,
   'passwords.list': P,
   'passwords.save': P,
   'passwords.remove': P,
@@ -329,3 +334,4 @@ export type PushMessage =
   | { type: 'downloads'; jobs: DownloadJob[] }
   | { type: 'torrents'; torrents: TorrentInfo[]; status: TorrentsStatus }
   | { type: 'updates'; state: UpdateState }
+  | { type: 'bookmarks' }

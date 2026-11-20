@@ -31,6 +31,7 @@ import { SettingsStore } from './settings/SettingsStore'
 import { StatsStore } from './settings/StatsStore'
 import { WindowManager } from './windows/WindowManager'
 import type { BmaxWindow } from './windows/BmaxWindow'
+import { BookmarkStore } from './bookmarks/BookmarkStore'
 import { ExtensionManager } from './extensions/ExtensionManager'
 import { ReaderManager } from './reader/ReaderManager'
 import { SessionRestore } from './session/SessionRestore'
@@ -107,6 +108,14 @@ void app.whenReady().then(async () => {
   } catch {
     /* nothing to remove */
   }
+  // "Keep me signed in" is off: make sure nothing of a previously kept profile remains on disk.
+  if (!services.settings.get().privacy.keepSiteData) {
+    try {
+      rmSync(join(app.getPath('userData'), 'Partitions', 'bmax-main'), { recursive: true, force: true })
+    } catch {
+      /* nothing to remove */
+    }
+  }
   services.restore = new SessionRestore()
   services.restore.init()
   services.reader = new ReaderManager()
@@ -130,6 +139,8 @@ void app.whenReady().then(async () => {
   services.tor = new TorManager()
   services.vault = new Vault()
   services.vault.init()
+  services.bookmarks = new BookmarkStore()
+  services.bookmarks.init()
   applyDoh(services.settings.get())
   services.sessions = new SessionManager({
     pipeline: services.pipeline,
@@ -198,6 +209,10 @@ void app.whenReady().then(async () => {
   services.vault.onChange = () => {
     for (const w of services.windows.all()) w.notify()
   }
+  services.bookmarks.onChange = () => {
+    broadcast({ type: 'bookmarks' })
+    for (const w of services.windows.all()) w.notify()
+  }
   services.tor.on('state', (state: TorState) => {
     for (const w of services.windows.all()) {
       if (!w.tor) continue
@@ -219,11 +234,19 @@ void app.whenReady().then(async () => {
     applyDoh(settings)
     services.sessions.applySettings()
     services.restore.onSettingsChange(prev.general.restoreSession)
+    if (prev.privacy.keepSiteData && !settings.privacy.keepSiteData) services.sessions.forgetKeptSiteData()
     const themeChanged = nativeTheme.themeSource !== settings.theme
     nativeTheme.themeSource = settings.theme
     broadcast({ type: 'settings', settings })
     if (themeChanged) broadcastTheme()
     if (themeChanged || prev.siteColorScheme !== settings.siteColorScheme) applySiteColorScheme()
+    if (prev.showBookmarksBar !== settings.showBookmarksBar || prev.showHomeButton !== settings.showHomeButton) {
+      for (const w of services.windows.all()) {
+        w.layout()
+        w.overlays.hideTransient()
+        w.notify()
+      }
+    }
   })
   nativeTheme.on('updated', () => {
     broadcastTheme()

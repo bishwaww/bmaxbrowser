@@ -1,6 +1,7 @@
 export const TABSTRIP_H = 40
 export const TOOLBAR_H = 44
 export const CHROME_H = TABSTRIP_H + TOOLBAR_H
+export const BOOKMARKS_H = 32
 
 export interface ChromeColors {
   strip: string

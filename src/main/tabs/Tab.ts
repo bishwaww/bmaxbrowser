@@ -221,7 +221,7 @@ export class Tab {
       isNewTab: internalPageOf(this.wc.getURL()) === 'newtab',
       sleeping: this.sleeping,
       container: services.sessions.containerLabel(this.partition),
-      bookmarked: services.vault.hasBookmark(url),
+      bookmarked: services.bookmarks.has(url),
       shields: services.shields.tabSummary(this.wc.id, url),
       media: services.media.summary(this.wc.id)
     }
@@ -322,6 +322,8 @@ export class Tab {
       notify()
     })
     wc.on('did-finish-load', () => services.media.scheduleScan(this))
+    // A video or audio element started playing: the page certainly has media now.
+    wc.on('media-started-playing', () => services.media.scheduleScan(this, 300, 0))
     wc.on('did-fail-load', (_e, code, desc, validatedUrl, isMainFrame) => {
       if (!isMainFrame || code === -3 || isInternalUrl(toLogicalUrl(validatedUrl))) return
       this.loading = false

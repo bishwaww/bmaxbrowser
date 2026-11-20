@@ -1,4 +1,4 @@
-import { dialog, Menu, nativeTheme } from 'electron'
+import { clipboard, dialog, Menu, nativeTheme } from 'electron'
 import { readFile } from 'node:fs/promises'
 import { parseBookmarksHtml } from '@shared/bookmarks-import'
 import { internalUrl } from '@shared/internal'
@@ -156,12 +156,31 @@ export function createHandlers(): Handlers {
     },
     'vault.status': () => services.vault.status(),
     'vault.create': ({ password }) => services.vault.create(password),
-    'vault.unlock': ({ password }) => services.vault.unlock(password),
+    'vault.unlock': ({ password }) => {
+      const r = services.vault.unlock(password)
+      // Bookmarks used to be stored in the vault: move any that are still there into the plain bookmark list.
+      if (r.ok) services.bookmarks.import(services.vault.takeBookmarks())
+      return r
+    },
     'vault.lock': () => services.vault.lock(),
     'vault.destroy': ({ password }) => services.vault.destroy(password),
-    'bookmarks.list': () => services.vault.bookmarks(),
-    'bookmarks.add': (a) => services.vault.addBookmark(a),
-    'bookmarks.remove': (a) => services.vault.removeBookmark(a.id),
+    'bookmarks.list': () => services.bookmarks.list(),
+    'bookmarks.add': (a) => services.bookmarks.add(a),
+    'bookmarks.remove': (a) => services.bookmarks.remove(a.id),
+    'bookmarks.contextMenu': (a, { window }) => {
+      const b = services.bookmarks.get(a.id)
+      if (!b) return
+      Menu.buildFromTemplate([
+        { label: 'Open in new tab', click: () => window.go(b.url, true) },
+        { label: 'Open in new window', click: () => (window.tor ? void services.windows.createTor() : services.windows.create({ url: b.url })) },
+        { type: 'separator' },
+        { label: 'Copy link address', click: () => clipboard.writeText(b.url) },
+        { label: 'Delete', click: () => services.bookmarks.remove(b.id) },
+        { type: 'separator' },
+        { label: 'All bookmarks', click: () => window.execute('bookmarks') },
+        { label: 'Hide bookmarks bar', click: () => window.execute('toggleBookmarksBar') }
+      ]).popup({ window: window.base })
+    },
     'bookmarks.import': async (_a, { window }) => {
       const res = await dialog.showOpenDialog(window.base, {
         title: 'Import bookmarks (HTML file)',
@@ -173,7 +192,7 @@ export function createHandlers(): Handlers {
       try {
         const html = await readFile(file, 'utf8')
         if (html.length > 30_000_000) return { added: 0, error: 'That file is too large.' }
-        return { added: services.vault.importBookmarks(parseBookmarksHtml(html)) }
+        return { added: services.bookmarks.import(parseBookmarksHtml(html)) }
       } catch (err) {
         return { added: 0, error: err instanceof Error ? err.message : 'Could not read the file.' }
       }

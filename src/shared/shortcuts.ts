@@ -35,6 +35,8 @@ export type ShortcutCommand =
   | 'readerMode'
   | 'pictureInPicture'
   | 'newExtensionWindow'
+  | 'toggleBookmarksBar'
+  | 'bookmarks'
 
 export interface KeyInput {
   key: string
@@ -115,6 +117,10 @@ export function matchShortcut(input: KeyInput, platform: string): ShortcutComman
       return shift ? 'newIsolatedWindow' : 'newWindow'
     case 'e':
       return shift ? 'newExtensionWindow' : null
+    case 'b':
+      return shift ? 'toggleBookmarksBar' : null
+    case 'o':
+      return shift ? 'bookmarks' : null
     case 's':
       return 'savePage'
     case 'u':
@@ -184,6 +190,8 @@ export const SHORTCUT_DOCS: readonly ShortcutDoc[] = [
   { group: 'Page', label: 'View page source', keys: 'Mod+U', command: 'viewSource' },
   { group: 'Page', label: 'Developer tools', keys: 'F12', command: 'devtools' },
   { group: 'Browser', label: 'Bookmark this page', keys: 'Mod+D', command: 'bookmarkPage' },
+  { group: 'Browser', label: 'Show or hide the bookmarks bar', keys: 'Mod+Shift+B', command: 'toggleBookmarksBar' },
+  { group: 'Browser', label: 'All bookmarks', keys: 'Mod+Shift+O', command: 'bookmarks' },
   { group: 'Browser', label: 'Downloads', keys: 'Mod+J', command: 'downloads' },
   { group: 'Browser', label: 'Settings', keys: 'Mod+,', command: 'settings' },
   { group: 'Browser', label: 'Burn all browsing data', keys: 'Mod+Shift+Delete', command: 'burn' }

@@ -76,7 +76,7 @@ export class MediaTracker {
   }
 
   /** Look at the DOM shortly after a load / in-page navigation (debounced). */
-  scheduleScan(tab: Tab, delayMs = 1200): void {
+  scheduleScan(tab: Tab, delayMs = 1200, retriesLeft = 2): void {
     const id = tab.wc.id
     const old = this.scanTimers.get(id)
     if (old) clearTimeout(old)
@@ -90,6 +90,8 @@ export class MediaTracker {
           .then((r: { videos: number; audios: number; images: number }) => {
             this.counts.set(id, { videos: r.videos | 0, audios: r.audios | 0, images: r.images | 0 })
             this.notify(id)
+            // Players are often created well after the page loads (YouTube and other single-page apps): look again a little later.
+            if ((r.videos | 0) + (r.audios | 0) === 0 && retriesLeft > 0) this.scheduleScan(tab, 4000, retriesLeft - 1)
           })
           .catch(() => undefined)
       }, delayMs)

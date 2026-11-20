@@ -11,6 +11,7 @@ import type { TorrentManager } from './torrents/TorrentManager'
 import type { TorManager } from './tor/TorManager'
 import type { Vault } from './vault/Vault'
 import type { WindowManager } from './windows/WindowManager'
+import type { BookmarkStore } from './bookmarks/BookmarkStore'
 import type { ExtensionManager } from './extensions/ExtensionManager'
 import type { ReaderManager } from './reader/ReaderManager'
 import type { SessionRestore } from './session/SessionRestore'
@@ -32,6 +33,7 @@ export interface Services {
   media: MediaTracker
   torrents: TorrentManager
   vault: Vault
+  bookmarks: BookmarkStore
   reader: ReaderManager
   sleeper: TabSleeper
   restore: SessionRestore
