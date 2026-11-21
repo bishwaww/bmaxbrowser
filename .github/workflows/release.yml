@@ -39,6 +39,18 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # A release that carries a version tag but no latest.yml cannot serve updates: it is a leftover of a failed or
+      # half-finished run (electron-builder's own uploader used to split one version over two draft releases). Remove those,
+      # and their tags, so the version number is free again. Releases with a latest.yml are never touched.
+      - name: Remove unusable releases left by earlier runs
+        shell: bash
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name | test("^v[0-9]+\\.[0-9]+\\.[0-9]+$")) | select(.draft or ([.assets[].name] | index("latest.yml") | not)) | "\(.id) \(.tag_name) \(.draft)"' | tr -d '\r' | while read -r id tag draft; do
+            echo "Deleting release $tag (id $id, draft=$draft)"
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/$id"
+            if [ "$draft" = "false" ]; then gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/$tag" || true; fi
+          done
+
       - name: Pick the version
         id: version
         shell: bash
@@ -56,14 +68,31 @@ jobs:
       - run: node scripts/verify-binaries.mjs --strict
 
       - run: npm run build
-      - name: Package and upload (draft release)
-        run: npx electron-builder --win --publish always
+      # electron-builder only builds here. Its own uploader is not used: it put the files of one version into two
+      # separate draft releases, so the published one was missing the installer or latest.yml.
+      - name: Package
+        run: npx electron-builder --win --publish never
         env:
           # Code signing (optional, see docs/PACKAGING.md). Unsigned builds are produced when these are empty.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
-      # The files are uploaded to a draft first so that nobody is offered a half-uploaded update.
+      # gh uploads every file to a draft and publishes it only when all of them are there, so nobody is offered a
+      # half-uploaded update. latest.yml is what installed copies read; the .blockmap allows smaller update downloads.
       - name: Publish the release
         shell: bash
-        run: gh release edit "v${{ steps.version.outputs.version }}" --draft=false --latest --target "$GITHUB_SHA" --title "BMAX Browser ${{ steps.version.outputs.version }}"
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          ls -l dist
+          test -s dist/latest.yml
+          grep -q "version: $v" dist/latest.yml
+          gh release create "v$v" \
+            "dist/BMAX-Browser-Setup-$v-x64.exe" \
+            "dist/BMAX-Browser-Setup-$v-x64.exe.blockmap" \
+            "dist/BMAX-Browser-Portable-$v-x64.exe" \
+            dist/latest.yml \
+            --title "BMAX Browser $v" --notes "Automatic build of commit ${GITHUB_SHA::7}." --target "$GITHUB_SHA" --latest
+          # Fail loudly if the published release is not complete.
+          gh release view "v$v" --json assets --jq '[.assets[].name] | join(" ")' | tee assets.txt
+          grep -q "latest.yml" assets.txt
+          grep -q "BMAX-Browser-Setup-$v-x64.exe " assets.txt || grep -q "BMAX-Browser-Setup-$v-x64.exe$" assets.txt

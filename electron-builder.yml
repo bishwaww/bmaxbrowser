@@ -40,8 +40,9 @@ extraResources:
     to: resources/licenses/PRIVACY.md
 
 # Updates: GitHub Releases through electron-updater (the NSIS installer, the macOS .zip and the AppImage can update
-# themselves; the portable .exe and .deb cannot). Files are uploaded to a DRAFT release; the release workflow publishes it
-# when every file is there (.github/workflows/release.yml). The repository must be public for installed copies to see it.
+# themselves; the portable .exe and .deb cannot). This block tells the app where to look and makes the build write
+# latest.yml; the release workflow uploads the files itself with `gh release create` (.github/workflows/release.yml).
+# The repository must be public for installed copies to see it.
 publish:
   provider: github
   owner: bishwaww

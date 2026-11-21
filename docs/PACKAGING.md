@@ -50,7 +50,7 @@ Never commit certificates or passwords; use CI secrets.
   builds cannot (Settings → About says so).
 - Updates are verified by electron-updater (file hash from `latest.yml`, and the publisher name on signed Windows builds). Unsigned builds have
   no publisher check, which is one more reason to sign releases.
-- Not verified yet: the release workflow itself and a real update from one published release to the next. The update state machine and the
+- Not verified yet: a real update from one published release to the next. The update state machine and the
   toolbar button are covered by tests with a stand-in updater.
 
 ## Releasing (automatic)
@@ -60,7 +60,9 @@ Every `git push` to `main` runs `.github/workflows/release.yml` on a Windows run
 2. runs typecheck and unit tests;
 3. downloads Tor, yt-dlp and ffmpeg from their official sources and refuses anything whose SHA-256 is not pinned in
    `resources/bin/CHECKSUMS.md` (`scripts/fetch-binaries.mjs`);
-4. builds the NSIS installer + portable `.exe`, uploads them to a draft release, then publishes the release.
+4. builds the NSIS installer + portable `.exe` (`electron-builder --publish never`) and publishes them with `latest.yml` and the `.blockmap`
+   through `gh release create` (electron-builder's own uploader split one version over two draft releases, so it is not used). Before that it
+   deletes version-tagged releases that have no `latest.yml` (leftovers of failed runs).
 
 Pushes that only change `docs/`, `*.md` or `tests/` do not release; `[skip ci]` in a commit message skips one on purpose. To start a new series
 (for example 0.7.x) change `version` in `package.json`. The workflow can also be started by hand (Actions → Release → Run workflow).
