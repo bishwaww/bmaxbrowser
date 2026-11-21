@@ -93,3 +93,32 @@ test('the first click in the address bar keeps keyboard focus there, so typing w
   await sleep(300)
   await expect(input).toHaveValue('again')
 })
+
+test('a menu that is taller than the window scrolls instead of being cut off, and knows the window state at once', async () => {
+  await inMain(h.app, `const w = s.windows.focused(); w.overlays.hideAll(); w.overlays.release('menu'); w.base.setSize(1000, 520)`)
+  await sleep(500)
+  await chromePage(h.app).getByLabel('Menu').click()
+  let menu: Page | undefined
+  for (let i = 0; i < 40 && !menu; i++) {
+    menu = h.app.windows().find((p) => p.url().includes('kind=menu'))
+    if (!menu) await sleep(150)
+  }
+  expect(menu).toBeTruthy()
+  await expect(menu!.getByText('New tab', { exact: true })).toBeVisible()
+  // The bookmarks bar is on by default: a brand-new menu must already say "Hide".
+  await expect(menu!.getByText('Hide bookmarks bar')).toHaveCount(1)
+
+  const card = menu!.locator('.overlay-card')
+  const size = await card.evaluate((el) => ({ scroll: el.scrollHeight, client: el.clientHeight }))
+  expect(size.scroll).toBeGreaterThan(size.client)
+  // The popup stays inside the window.
+  const fits = await inMain<boolean>(h.app, `const w = s.windows.focused(); const b = w.overlays.entries.get('menu').view.getBounds(); return b.y + b.height <= w.contentSize()[1]`)
+  expect(fits).toBe(true)
+
+  const last = menu!.getByText('Privacy policy')
+  await expect(last).not.toBeInViewport()
+  await card.hover()
+  await menu!.mouse.wheel(0, 2000)
+  await expect(last).toBeInViewport()
+  await inMain(h.app, `const w = s.windows.focused(); w.overlays.hideAll(); w.base.setSize(1280, 820)`)
+})

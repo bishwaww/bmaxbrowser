@@ -93,7 +93,7 @@ export class OverlayManager {
     e.rect = r
     e.view.setBounds(r)
     e.visible = true
-    const msg: PushMessage = { type: 'overlay-data', kind, data, rect: r }
+    const msg: PushMessage = { type: 'overlay-data', kind, data, rect: r, maxHeight: Math.max(120, ch - r.y) }
     if (e.ready) {
       this.attach(kind, e)
       e.view.webContents.send(IPC_PUSH, msg)
@@ -169,6 +169,8 @@ export class OverlayManager {
     const e = this.entries.get(kind)
     if (!e) return
     e.ready = true
+    // A freshly created overlay has not seen any window state yet (the menu showed "Show bookmarks bar" while the bar was visible).
+    e.view.webContents.send(IPC_PUSH, { type: 'state', state: this.win.state() } satisfies PushMessage)
     if (e.visible) this.attach(kind, e)
     if (e.pending) {
       e.view.webContents.send(IPC_PUSH, e.pending)

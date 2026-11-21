@@ -329,7 +329,7 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
 export type PushMessage =
   | { type: 'state'; state: WindowState }
   | { type: 'focus-omnibox'; select: boolean }
-  | { type: 'overlay-data'; kind: OverlayKind; data: unknown; rect: Rect }
+  | { type: 'overlay-data'; kind: OverlayKind; data: unknown; rect: Rect; /** Room below the overlay's top edge inside the window: taller content scrolls. */ maxHeight?: number }
   | { type: 'overlay-closed'; kind: OverlayKind }
   | { type: 'find-result'; activeMatch: number; matches: number }
   | { type: 'settings'; settings: Settings }

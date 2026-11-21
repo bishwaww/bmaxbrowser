@@ -3,3 +3,9 @@ body,
 #root {
   background: transparent !important;
 }
+
+.overlay-card {
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted) transparent;
+  overscroll-behavior: contain;
+}

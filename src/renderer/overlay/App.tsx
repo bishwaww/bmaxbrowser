@@ -18,12 +18,12 @@ function kindFromUrl(): OverlayKind {
 
 export function App() {
   const kind = kindFromUrl()
-  const [payload, setPayload] = useState<{ data: unknown; rect: Rect; seq: number } | null>(null)
+  const [payload, setPayload] = useState<{ data: unknown; rect: Rect; maxHeight: number | undefined; seq: number } | null>(null)
   const wrapRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const off = window.bmax.onPush((m) => {
-      if (m.type === 'overlay-data' && m.kind === kind) setPayload((p) => ({ data: m.data, rect: m.rect, seq: (p?.seq ?? 0) + 1 }))
+      if (m.type === 'overlay-data' && m.kind === kind) setPayload((p) => ({ data: m.data, rect: m.rect, maxHeight: m.maxHeight, seq: (p?.seq ?? 0) + 1 }))
     })
     void window.bmax.cmd('ui.ready', { kind })
     return off
@@ -52,7 +52,18 @@ export function App() {
   const width = payload.rect.width
   return (
     <div ref={wrapRef} style={{ width, padding: '4px 8px 12px', boxSizing: 'border-box', background: 'transparent' }}>
-      <div style={{ background: 'var(--card)', borderRadius: 10, boxShadow: 'var(--shadow)', overflow: 'hidden' }}>
+      {/* Never taller than the room the window has: a long menu in a short window scrolls instead of being cut off. */}
+      <div
+        className="overlay-card"
+        style={{
+          background: 'var(--card)',
+          borderRadius: 10,
+          boxShadow: 'var(--shadow)',
+          overflowX: 'hidden',
+          overflowY: 'auto',
+          maxHeight: payload.maxHeight ? Math.max(100, payload.maxHeight - 16) : undefined
+        }}
+      >
         {kind === 'menu' && <MenuView />}
         {kind === 'cert' && <CertView data={payload.data as { tabId: number; url: string; security: string }} />}
         {kind === 'permission' && <PermissionView data={payload.data as never} />}
