@@ -79,6 +79,8 @@ export interface SuggestionItem {
   text: string
   url: string
   tabId?: number
+  /** Site icon (data: URL) when known. */
+  icon?: string | null
 }
 
 export interface TorState {

@@ -152,6 +152,8 @@ export const commandSchemas = {
   'bookmarks.remove': z.object({ id: z.string().max(64) }),
   'bookmarks.import': empty,
   'bookmarks.contextMenu': z.object({ id: z.string().max(64) }),
+  /** Site icons (data: URLs) known for these addresses; null when none is known. */
+  'icons.get': z.object({ urls: z.array(z.string().max(2048)).max(300) }),
   'passwords.list': empty,
   'passwords.save': z.object({ id: z.string().max(64).optional(), site: z.string().min(1).max(253), username: z.string().max(256), password: z.string().min(1).max(1024) }),
   'passwords.remove': z.object({ id: z.string().max(64) }),
@@ -214,6 +216,7 @@ export interface CommandResults {
   'bookmarks.list': Bookmark[]
   'bookmarks.add': Bookmark
   'bookmarks.import': { added: number; error?: string }
+  'icons.get': Record<string, string | null>
   'passwords.list': PasswordEntry[]
   'passwords.save': PasswordEntry
   'passwords.reveal': string | null
@@ -272,9 +275,9 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'torrents.chooseFolder': P,
   'torrents.setDefaultHandler': P,
   'app.info': ['chrome', 'overlay', 'page'],
-  'updates.check': P,
-  'updates.download': P,
-  'updates.install': P,
+  'updates.check': ['chrome', 'overlay', 'page'],
+  'updates.download': ['chrome', 'page'],
+  'updates.install': ['chrome', 'page'],
   'extensions.list': P,
   'extensions.installUnpacked': P,
   'extensions.installCrx': P,
@@ -311,6 +314,7 @@ export const commandRoles: Record<CommandName, readonly Role[]> = {
   'bookmarks.remove': P,
   'bookmarks.import': P,
   'bookmarks.contextMenu': C,
+  'icons.get': ['chrome', 'overlay', 'page'],
   'passwords.list': P,
   'passwords.save': P,
   'passwords.remove': P,

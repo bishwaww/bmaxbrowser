@@ -5,6 +5,10 @@ import { settingsSchema, DEFAULT_SETTINGS } from '../../src/shared/settings'
 import { formatShortcut, keysToInput, matchShortcut, SHORTCUT_DOCS } from '../../src/shared/shortcuts'
 import { parseInternalUrl, NAVIGABLE_PAGES } from '../../src/shared/internal'
 import { coerceArticle } from '../../src/main/reader/ReaderManager'
+import { siteHost, sniffImageType } from '../../src/main/tabs/favicon'
+import { updateErrorText } from '../../src/main/updates/UpdateManager'
+// @ts-expect-error plain .mjs build script without type declarations
+import { nextVersion } from '../../scripts/next-version.mjs'
 
 describe('Settings → Shortcuts list', () => {
   it('every documented shortcut really triggers its command (Windows/Linux and macOS)', () => {
@@ -79,6 +83,42 @@ describe('reader mode data', () => {
   it('estimates reading time', () => {
     expect(readingMinutes(0)).toBe(1)
     expect(readingMinutes(1000)).toBe(5)
+  })
+})
+
+describe('site icons', () => {
+  it('recognises icon formats by their first bytes (servers often send no usable content type)', () => {
+    expect(sniffImageType(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]))).toBe('image/png')
+    expect(sniffImageType(Buffer.from([0, 0, 1, 0, 1, 0]))).toBe('image/x-icon')
+    expect(sniffImageType(Buffer.from([0xff, 0xd8, 0xff, 0xe0]))).toBe('image/jpeg')
+    expect(sniffImageType(Buffer.from('GIF89a'))).toBe('image/gif')
+    expect(sniffImageType(Buffer.from('RIFF\0\0\0\0WEBPVP8 '))).toBe('image/webp')
+    expect(sniffImageType(Buffer.from('<?xml version="1.0"?>\n<svg xmlns="http://www.w3.org/2000/svg"/>'))).toBe('image/svg+xml')
+    expect(sniffImageType(Buffer.from('<!doctype html><title>Not found</title>'))).toBeNull()
+    expect(sniffImageType(Buffer.alloc(0))).toBeNull()
+  })
+  it('groups icons by site', () => {
+    expect(siteHost('https://www.youtube.com/watch?v=1')).toBe('youtube.com')
+    expect(siteHost('http://m.example.org:8080/x')).toBe('m.example.org')
+    expect(siteHost('bmax://newtab/')).toBe('')
+    expect(siteHost('not a url')).toBe('')
+  })
+})
+
+describe('updates', () => {
+  it('each release gets the next free patch number above package.json and above every published release', () => {
+    expect(nextVersion(0, 6, 0, [])).toBe('0.6.0')
+    expect(nextVersion(0, 6, 0, ['v0.6.0'])).toBe('0.6.1')
+    expect(nextVersion(0, 6, 0, ['v0.6.0', 'v0.6.7', 'v0.6.3', 'v0.5.99', 'nightly'])).toBe('0.6.8')
+    expect(nextVersion(0, 7, 0, ['v0.6.9'])).toBe('0.7.0')
+    expect(nextVersion(1, 0, 5, ['v1.0.2'])).toBe('1.0.5')
+  })
+  it('explains update errors in plain words', () => {
+    expect(updateErrorText(new Error('HttpError: 404 Not Found\n"method: GET url: https://github.com/x/y/releases.atom"'), 'x')).toMatch(/No published version/)
+    expect(updateErrorText(new Error('Cannot find latest.yml in the latest release artifacts'), 'x')).toMatch(/No published version/)
+    expect(updateErrorText(new Error('net::ERR_INTERNET_DISCONNECTED'), 'x')).toMatch(/internet connection/)
+    expect(updateErrorText(new Error('sha512 checksum mismatch\nstack…'), 'x')).toBe('sha512 checksum mismatch')
+    expect(updateErrorText(null, 'Update check failed')).toBe('Update check failed')
   })
 })
 

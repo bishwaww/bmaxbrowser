@@ -46,6 +46,13 @@ export async function startServer(): Promise<TestServer> {
       case '/favicon.png':
         res.writeHead(200, { 'content-type': 'image/png' })
         return void res.end(PNG)
+      case '/icon-page-2':
+        return send('<!doctype html><title>Same site, same icon</title><link rel="icon" href="/favicon.png"><body>second page</body>')
+      case '/icon-octet-page':
+        return send('<!doctype html><title>Icon without a type</title><link rel="icon" href="/icon.bin"><body>octet</body>')
+      case '/icon.bin':
+        res.writeHead(200, { 'content-type': 'application/octet-stream' })
+        return void res.end(PNG)
       case '/headers':
         return send(JSON.stringify(req.headers), 'application/json')
       case '/setcookie':

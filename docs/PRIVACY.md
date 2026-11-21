@@ -8,7 +8,7 @@ This is the privacy policy of BMAX Browser. It is shown inside the browser (menu
 | Settings (theme, search engine, home page, shortcut tiles, privacy toggles, DNS/proxy choices) | `settings.json` in the app data folder | always |
 | Lifetime counters: ads blocked, trackers blocked, estimated time saved (3 numbers) | `stats.json` | always |
 | Per-site permission decisions | `permissions.json` | **only** if "Remember site permission decisions" is on (off by default); turning it off deletes the file |
-| Bookmarks (title, address, small site icon) | `bookmarks.json` | **only** once you bookmark a page. Stored as a plain, unencrypted file so they are always available without a password; delete a bookmark to remove it. Burn does not delete bookmarks. |
+| Bookmarks (title, address, small site icon) | `bookmarks.json` | **only** once you bookmark a page (a bookmark that has no icon yet, for example an imported one, gets the site's icon the next time you open that site). Stored as a plain, unencrypted file so they are always available without a password; delete a bookmark to remove it. Burn does not delete bookmarks. |
 | Cookies, site data and cache of normal windows | `Partitions/bmax-main/` | **only** if you turn on "Keep me signed in" (off by default; Settings → Privacy & Security). Wiped by Burn and when you turn the setting off; the folder is deleted at the next start while it is off. Never used by Tor, isolated or container tabs. |
 | Saved passwords | `vault.bin` | **only** if you create the vault (off by default). AES-256-GCM with a scrypt-derived key from your master password, wrapped again by the OS secure storage (Windows DPAPI / macOS Keychain / Linux keyring). Never uploaded. |
 | Tor's working files (consensus, state) | a temporary folder | only while a Tor window is open; deleted when Tor stops |
@@ -130,6 +130,6 @@ to give every site the same answer. Tor windows always report light.
 ## Updates
 - Once a day (and at start-up), unless you turn it off in Settings → General, BMAX asks GitHub Releases whether a newer version exists. This
   reveals your IP address, the BMAX version and your operating system to GitHub, like any download. The request uses your proxy setting and
-  never uses Tor. Nothing is downloaded or installed until you click Download / Restart and install in Settings → About; update packages
+  never uses Tor. Nothing is downloaded or installed until you click the Update button in the toolbar (or Download / Restart and install in Settings → About); update packages
   are checked by electron-updater (and, for signed builds, by the publisher name).
 - The portable Windows build and development builds do not update themselves.

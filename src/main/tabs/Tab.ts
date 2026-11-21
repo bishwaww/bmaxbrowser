@@ -10,7 +10,7 @@ import { upgradedNavigations } from '../net/privacy-handlers'
 import { services } from '../services'
 import type { BmaxWindow } from '../windows/BmaxWindow'
 import { buildContextMenu } from './contextMenu'
-import { fetchFavicon } from './favicon'
+import { fetchFavicon, rememberSiteIcon, siteHost } from './favicon'
 import { nextZoom } from './zoom'
 
 let seq = 0
@@ -38,6 +38,10 @@ const PIP_SCRIPT = `(async () => {
   return 'opened'
 })()`
 
+/** Icon addresses declared by the page, smallest declared size first (runs in the page). */
+const FIND_ICONS_SCRIPT =
+  "Array.from(document.querySelectorAll('link[rel~=\"icon\" i], link[rel=\"shortcut icon\" i], link[rel~=\"apple-touch-icon\" i]')).map(function (l) { return l.href }).filter(Boolean)"
+
 export class Tab {
   readonly id = ++seq
   readonly view: WebContentsView
@@ -59,6 +63,8 @@ export class Tab {
   private sleepState: SleepState | null = null
   private cdpAttached = false
   private lastFaviconUrl = ''
+  /** Site (host) the current icon belongs to: the icon is kept while navigating inside that site. */
+  private faviconHost = ''
   private destroyed = false
 
   /** `lazy`: create the tab asleep (nothing loads until it is first selected) - used by session restore. */
@@ -264,6 +270,48 @@ export class Tab {
     this.window.notify()
   }
 
+  // ---------------------------------------------------------------- site icon
+
+  private setFavicon(data: string | null): void {
+    this.favicon = data
+    if (data && !this.window.tor) {
+      const pageUrl = this.wc.getURL()
+      rememberSiteIcon(pageUrl, data)
+      services.bookmarks.setIcon(pageUrl, data)
+    }
+    this.window.notify()
+  }
+
+  /** The page is loaded and still has no icon (no event, or the announced file could not be used): look for one ourselves. */
+  private async findFavicon(): Promise<void> {
+    if (this.isDestroyed || this.sleeping || this.favicon) return
+    const pageUrl = this.wc.getURL()
+    if (!siteHost(pageUrl)) return
+    let links: string[] = []
+    try {
+      const found: unknown = await this.wc.executeJavaScript(FIND_ICONS_SCRIPT)
+      if (Array.isArray(found)) links = found.filter((x): x is string => typeof x === 'string').slice(0, 6)
+    } catch {
+      /* page went away */
+    }
+    try {
+      links.push(new URL('/favicon.ico', pageUrl).href)
+    } catch {
+      /* not a normal address */
+    }
+    for (const url of links) {
+      if (url === this.lastFaviconUrl) continue
+      const data = await fetchFavicon(this.session, url)
+      if (this.isDestroyed || this.favicon || this.wc.getURL() !== pageUrl) return
+      if (data) {
+        this.lastFaviconUrl = url
+        this.faviconHost = siteHost(pageUrl)
+        this.setFavicon(data)
+        return
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- events
 
   private bind(): void {
@@ -277,8 +325,7 @@ export class Tab {
       this.lastFaviconUrl = url
       void fetchFavicon(this.session, url).then((data) => {
         if (this.isDestroyed || this.lastFaviconUrl !== url) return
-        this.favicon = data
-        notify()
+        this.setFavicon(data)
       })
     })
     wc.on('did-start-loading', () => {
@@ -310,9 +357,15 @@ export class Tab {
       this.pageLoadedAt = Date.now()
       upgradedNavigations.delete(wc.id)
       this.pendingUrl = null
+      // Chromium announces a page's icon only when it CHANGES, so the icon must survive navigation inside one site
+      // (clearing it on every navigation left tabs of YouTube and most other sites without an icon).
       if (!this.sleeping) {
-        this.lastFaviconUrl = ''
-        this.favicon = null
+        const host = siteHost(wc.getURL())
+        if (!host || host !== this.faviconHost) {
+          this.lastFaviconUrl = ''
+          this.favicon = null
+          this.faviconHost = host
+        }
       }
       this.applyStoredZoom()
       notify()
@@ -322,6 +375,9 @@ export class Tab {
       notify()
     })
     wc.on('did-finish-load', () => services.media.scheduleScan(this))
+    wc.on('did-finish-load', () => {
+      setTimeout(() => void this.findFavicon(), 1500).unref()
+    })
     // A video or audio element started playing: the page certainly has media now.
     wc.on('media-started-playing', () => services.media.scheduleScan(this, 300, 0))
     wc.on('did-fail-load', (_e, code, desc, validatedUrl, isMainFrame) => {

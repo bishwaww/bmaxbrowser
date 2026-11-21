@@ -31,6 +31,7 @@ contacts Google's dictionary CDN. Without a file, spellcheck stays off.
 in `resources/bin/CHECKSUMS.md`). To add a language, download its `<lang>-<n>-<n>.bdic` from that repository, save it as `resources/dictionaries/<lang>.bdic`,
 and pin its hash. Spell-check never uses the network at run time.
 
-Verify what is on disk against the pinned hashes with `npm run verify-binaries` (`-- --strict` also fails on missing files). Packaging copies the
+`npm run fetch-binaries` (Windows x64) downloads whatever is missing from the sources above and refuses any file whose SHA-256 is not the pinned
+one; the release workflow uses it. Verify what is on disk against the pinned hashes with `npm run verify-binaries` (`-- --strict` also fails on missing files). Packaging copies the
 `resources/bin/<tool>/<platform>-<arch>/` folders into the installer (see docs/PACKAGING.md). Before shipping, read the FFmpeg/GPL note in
 docs/THIRD_PARTY.md: the 430 MB "full" build used in development is GPLv3.

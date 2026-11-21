@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react'
 import { displayUrl, resolveOmnibox } from '@shared/omnibox'
 import type { Settings } from '@shared/settings'
 import type { OverlayKind, SuggestionItem, TabInfo, WindowState } from '@shared/types'
+import { useUpdateState } from '../shared-ui/hooks'
 import {
   IconBack,
   IconDownload,
@@ -35,7 +36,7 @@ function buildSuggestions(text: string, state: WindowState, engine: string): Sug
     if (items.length >= 5) break
     if (tab.id === state.activeTabId) continue
     if (tab.title.toLowerCase().includes(q) || tab.url.toLowerCase().includes(q)) {
-      items.push({ kind: 'tab', text: tab.title || tab.url, url: tab.url, tabId: tab.id })
+      items.push({ kind: 'tab', text: tab.title || tab.url, url: tab.url, tabId: tab.id, icon: tab.favicon })
     }
   }
   return items
@@ -266,14 +267,21 @@ export function Toolbar({
               setSelected(0)
             }}
             onFocus={(e) => {
+              // Focus that comes straight back (the window or a popup took it for a moment) must not reset what was typed.
+              const returning = blurTimer.current !== null
               if (blurTimer.current) window.clearTimeout(blurTimer.current)
+              blurTimer.current = null
+              if (returning && focused) return
               setFocused(true)
               setText(tab && !tab.isNewTab ? tab.url : '')
               e.currentTarget.select()
             }}
             onBlur={() => {
               // Delay so a click on the suggestion overlay is not lost.
-              blurTimer.current = window.setTimeout(() => setFocused(false), 160)
+              blurTimer.current = window.setTimeout(() => {
+                blurTimer.current = null
+                setFocused(false)
+              }, 160)
             }}
             onKeyDown={onKeyDown}
           />
@@ -289,20 +297,21 @@ export function Toolbar({
             {state.zoomPercent}%
           </button>
         )}
+        {tab && /^https?:\/\//i.test(tab.url) && (
+          <button
+            className="icon-btn mr-1"
+            title={tab.bookmarked ? 'Remove this bookmark (Ctrl+D)' : 'Bookmark this page (Ctrl+D)'}
+            aria-label="Bookmark this page"
+            aria-pressed={tab.bookmarked}
+            style={{ width: 28, height: 28, color: tab.bookmarked ? 'var(--accent)' : undefined }}
+            onClick={() => void window.bmax.cmd('window.action', { name: 'bookmarkPage' })}
+          >
+            <IconStar size={17} filled={tab.bookmarked} />
+          </button>
+        )}
       </div>
 
       <ShieldsButton tab={tab} toggleOverlay={toggleOverlay} />
-      {tab && /^https?:\/\//i.test(tab.url) && (
-        <button
-          className="icon-btn"
-          title={tab.bookmarked ? 'Remove bookmark (Ctrl+D)' : 'Bookmark this page (Ctrl+D)'}
-          aria-label="Bookmark this page"
-          style={{ color: tab.bookmarked ? 'var(--accent)' : undefined }}
-          onClick={() => void window.bmax.cmd('window.action', { name: 'bookmarkPage' })}
-        >
-          <IconStar filled={tab.bookmarked} />
-        </button>
-      )}
       {state.tor && <TorControls />}
       {state.extensions && (
         <span
@@ -321,6 +330,7 @@ export function Toolbar({
       >
         <IconFlame />
       </button>
+      <UpdateButton />
       <MenuButton state={state} toggleOverlay={toggleOverlay} />
 
       {loading && tab && (
@@ -330,6 +340,32 @@ export function Toolbar({
         />
       )}
     </div>
+  )
+}
+
+/** Appears next to the menu when a newer version has been published: one click downloads it, a second click restarts into it. */
+function UpdateButton() {
+  const u = useUpdateState()
+  if (!u || (u.status !== 'available' && u.status !== 'downloading' && u.status !== 'downloaded')) return null
+  const label = u.status === 'available' ? 'Update' : u.status === 'downloading' ? `Updating ${u.progress ?? 0}%` : 'Restart to update'
+  const title =
+    u.status === 'available'
+      ? `BMAX ${u.version ?? ''} is available. Click to download it.`
+      : u.status === 'downloading'
+        ? `Downloading BMAX ${u.version ?? ''}…`
+        : `BMAX ${u.version ?? ''} is downloaded. Click to restart and install it.`
+  return (
+    <button
+      className="shrink-0 rounded-full px-3 text-xs font-semibold"
+      style={{ height: 26, background: 'var(--accent)', color: 'var(--on-accent)', whiteSpace: 'nowrap', opacity: u.status === 'downloading' ? 0.75 : 1 }}
+      aria-label="Update BMAX"
+      data-update={u.status}
+      title={title}
+      disabled={u.status === 'downloading'}
+      onClick={() => void window.bmax.cmd(u.status === 'downloaded' ? 'updates.install' : 'updates.download')}
+    >
+      {label}
+    </button>
   )
 }
 

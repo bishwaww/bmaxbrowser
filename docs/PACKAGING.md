@@ -39,21 +39,35 @@ Unsigned builds work but trigger SmartScreen (Windows) and Gatekeeper (macOS) wa
 Never commit certificates or passwords; use CI secrets.
 
 ## Updates (electron-updater + GitHub Releases)
-- Configured in `electron-builder.yml` (`publish:` → `bishwaww/bmaxbrowser`). `npm run release` (or the release workflow on a `v*` tag) uploads the
-  installers plus `latest.yml` / `latest-mac.yml` / `latest-linux.yml` to a GitHub release; the installed app finds them there.
-- The app checks about once a day (switchable in Settings → General) and installs only after the user clicks (Settings → About). The request goes
-  through the proxy setting and never through Tor.
-- What can update itself: the NSIS installer, the macOS `.zip`/`.dmg` install and the AppImage. The portable `.exe`, the `.deb` and development builds
-  cannot (Settings → About says so).
-- Updates are verified by electron-updater (file hash from `latest.yml`, and the publisher name on signed Windows builds). Unsigned builds have no
-  publisher check, which is one more reason to sign releases.
-- Not verified yet: a real update from one published release to the next (needs two published releases). The update state machine is covered by tests
-  with a stand-in updater.
+- Configured in `electron-builder.yml` (`publish:` → `bishwaww/bmaxbrowser`). The release workflow uploads the installer, its `.blockmap` and
+  `latest.yml` to a GitHub release; the installed app finds them there.
+- **The repository (or at least its releases) must be public.** Installed copies check without an account or token, so a private repository
+  answers "not found" and Settings → About says that no published version was found.
+- The app checks about 20 seconds after start and then once a day (switchable in Settings → General). When a newer version exists an **Update**
+  button appears in the toolbar: one click downloads it, a second click ("Restart to update") installs it. The same is available in Settings →
+  About and through Menu → Check for updates. Nothing is downloaded without that click. The request goes through the proxy setting, never Tor.
+- What can update itself: the NSIS installer, the macOS `.zip`/`.dmg` install and the AppImage. The portable `.exe`, the `.deb` and development
+  builds cannot (Settings → About says so).
+- Updates are verified by electron-updater (file hash from `latest.yml`, and the publisher name on signed Windows builds). Unsigned builds have
+  no publisher check, which is one more reason to sign releases.
+- Not verified yet: the release workflow itself and a real update from one published release to the next. The update state machine and the
+  toolbar button are covered by tests with a stand-in updater.
 
-## Releasing
-1. Update `version` in `package.json`, update `CLAUDE.md`/changelog notes, commit and push.
-2. Tag: `git tag v0.6.0 && git push origin v0.6.0`. The release workflow builds the installers on Windows, macOS and Linux and attaches them to a
-   **draft** GitHub release for you to review and publish (publishing makes it visible to the updater).
+## Releasing (automatic)
+Every `git push` to `main` runs `.github/workflows/release.yml` on a Windows runner:
+1. picks the version: MAJOR.MINOR from `package.json` plus the next free patch number (`scripts/next-version.mjs`), so each push is a new,
+   higher version;
+2. runs typecheck and unit tests;
+3. downloads Tor, yt-dlp and ffmpeg from their official sources and refuses anything whose SHA-256 is not pinned in
+   `resources/bin/CHECKSUMS.md` (`scripts/fetch-binaries.mjs`);
+4. builds the NSIS installer + portable `.exe`, uploads them to a draft release, then publishes the release.
+
+Pushes that only change `docs/`, `*.md` or `tests/` do not release; `[skip ci]` in a commit message skips one on purpose. To start a new series
+(for example 0.7.x) change `version` in `package.json`. The workflow can also be started by hand (Actions → Release → Run workflow).
+A build takes roughly 15–25 minutes; on a private repository that uses the account's Actions minutes (Windows runners count double).
+
+macOS and Linux packages are not built by the workflow (no pinned binaries for them yet): run `npm run dist:mac` / `npm run dist:linux` on those
+systems. `npm run release` still publishes from a local machine when `GH_TOKEN` is set.
 
 ## Default browser / protocol handlers
 Packages do not register BMAX as the default browser. `http(s)` links passed on the command line open in BMAX, and BMAX can optionally register as the

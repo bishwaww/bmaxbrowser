@@ -102,6 +102,14 @@ export function MenuView() {
       <Row label="Burn all browsing data" hint={`${mod}Shift+Del`} onClick={act('burn')} />
       <Row label="Settings" hint={`${mod},`} onClick={act('settings')} />
       <Row
+        label="Check for updates"
+        onClick={() => {
+          void window.bmax.cmd('updates.check')
+          void window.bmax.cmd('tab.new', { url: 'bmax://settings/?section=About' })
+          void window.bmax.cmd('overlay.hide', { kind: 'menu' })
+        }}
+      />
+      <Row
         label="Privacy policy"
         onClick={() => {
           void window.bmax.cmd('tab.new', { url: 'bmax://privacy' })

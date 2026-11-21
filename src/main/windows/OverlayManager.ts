@@ -92,12 +92,26 @@ export class OverlayManager {
     }
     e.rect = r
     e.view.setBounds(r)
-    this.win.base.contentView.addChildView(e.view) // (re-)adding moves it to the top of the stack
     e.visible = true
     const msg: PushMessage = { type: 'overlay-data', kind, data, rect: r }
-    if (e.ready) e.view.webContents.send(IPC_PUSH, msg)
-    else e.pending = msg
-    if (FOCUSING.includes(kind)) e.view.webContents.focus()
+    if (e.ready) {
+      this.attach(kind, e)
+      e.view.webContents.send(IPC_PUSH, msg)
+    } else e.pending = msg // attached by ready(), once its page has loaded
+  }
+
+  /**
+   * Put a loaded overlay on top of the window. A view that is still loading is never attached: Chromium gives keyboard
+   * focus to a page that finishes its first load inside the window, which took the focus away from the address bar the
+   * first time the suggestion list appeared (typing was lost until the second click).
+   */
+  private attach(kind: OverlayKind, e: Entry): void {
+    const chrome = this.win.chromeView.webContents
+    const focusing = FOCUSING.includes(kind)
+    const keepChromeFocus = !focusing && !chrome.isDestroyed() && chrome.isFocused()
+    this.win.base.contentView.addChildView(e.view) // (re-)adding moves it to the top of the stack
+    if (focusing) e.view.webContents.focus()
+    else if (keepChromeFocus && !chrome.isFocused()) chrome.focus()
   }
 
   hide(kind: OverlayKind): void {
@@ -135,7 +149,7 @@ export class OverlayManager {
 
   /** Keep visible overlays above the active tab view after it was (re-)attached. */
   raise(): void {
-    for (const e of this.entries.values()) if (e.visible) this.win.base.contentView.addChildView(e.view)
+    for (const e of this.entries.values()) if (e.visible && e.ready) this.win.base.contentView.addChildView(e.view)
   }
 
   resize(kind: OverlayKind, width: number, height: number): void {
@@ -155,6 +169,7 @@ export class OverlayManager {
     const e = this.entries.get(kind)
     if (!e) return
     e.ready = true
+    if (e.visible) this.attach(kind, e)
     if (e.pending) {
       e.view.webContents.send(IPC_PUSH, e.pending)
       e.pending = null

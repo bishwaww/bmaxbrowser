@@ -1,28 +1,36 @@
 name: Release
 
-# Builds the installers on each operating system and attaches them to a DRAFT GitHub release.
-# Push a tag such as v0.6.0 (matching package.json) to start it. Review the draft, then publish it.
+# Every push to main becomes a new published Windows version: this workflow builds the installer, uploads it with
+# latest.yml to a GitHub release and publishes it. Installed copies of BMAX find it there (Update button in the toolbar,
+# Menu -> Check for updates).
+#
+# - The version is MAJOR.MINOR from package.json plus the next free patch number (scripts/next-version.mjs).
+# - Pushes that only touch docs or tests do not release. Put [skip ci] in a commit message to skip a release on purpose.
+# - The repository must be PUBLIC for installed copies to see the releases (they check without any account or token).
+# - macOS / Linux packages are not built here (no pinned binaries for them yet); see docs/PACKAGING.md.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - 'tests/**'
+      - '.github/workflows/ci.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  package:
-    name: Package (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: windows-latest
-            flag: --win
-          - os: macos-latest
-            flag: --mac
-          - os: ubuntu-latest
-            flag: --linux
+  windows:
+    name: Build and publish (Windows)
+    runs-on: windows-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,19 +38,32 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+
+      - name: Pick the version
+        id: version
+        shell: bash
+        run: node scripts/next-version.mjs >> "$GITHUB_OUTPUT"
+      - name: Set the version
+        run: npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
+
       - run: npm run typecheck
       - run: npm test
+
+      # Tor, yt-dlp and ffmpeg are not in git: download them from their official sources and refuse anything whose
+      # SHA-256 differs from the value pinned in resources/bin/CHECKSUMS.md.
+      - name: Fetch and verify bundled binaries
+        run: node scripts/fetch-binaries.mjs
+      - run: node scripts/verify-binaries.mjs --strict
+
       - run: npm run build
-      # Tor, yt-dlp and ffmpeg are not in git. Put them into resources/bin/ before this step (for example download and
-      # verify them here, or restore them from a private cache) - see docs/BINARIES.md. Without them the package still builds,
-      # but those features report "not installed".
-      - run: node scripts/verify-binaries.mjs
-      - run: npx electron-builder ${{ matrix.flag }} --publish always
+      - name: Package and upload (draft release)
+        run: npx electron-builder --win --publish always
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Code signing (optional, see docs/PACKAGING.md). Unsigned builds are produced when these are empty.
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      # The files are uploaded to a draft first so that nobody is offered a half-uploaded update.
+      - name: Publish the release
+        shell: bash
+        run: gh release edit "v${{ steps.version.outputs.version }}" --draft=false --latest --target "$GITHUB_SHA" --title "BMAX Browser ${{ steps.version.outputs.version }}"

@@ -1,5 +1,5 @@
 import { _electron as electron, expect, test } from '@playwright/test'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { inMain, sleep } from './helpers'
@@ -35,7 +35,8 @@ test('the packaged app starts and its parts work from inside the package', async
     )
     console.log(`[packaged] first window at ${info.firstWindowMs} ms, version ${info.version}`)
     expect(info.packaged).toBe(true)
-    expect(info.version).toBe('0.6.0')
+    // (A package built from an older checkout would fail here: rebuild with `npm run dist:dir`.)
+    expect(info.version).toBe((JSON.parse(readFileSync(resolve(__dirname, '../../package.json'), 'utf8')) as { version: string }).version)
     expect(info.firstWindowMs!).toBeLessThan(2000)
 
     // Bundled resources: binaries, icon, licences.

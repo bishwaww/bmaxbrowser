@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { getSearchEngine } from '@shared/search-engines'
 import type { PrivacyStats, Tile } from '@shared/settings'
-import { useSettings } from '../shared-ui/hooks'
+import { useSettings, useSiteIcons } from '../shared-ui/hooks'
 import { IconPlus, IconSearch } from '../shared-ui/icons'
 
 function useClock(): Date {
@@ -96,6 +96,7 @@ export function App() {
   const [query, setQuery] = useState('')
   const [stats, setStats] = useState<PrivacyStats | null>(null)
   const [editing, setEditing] = useState<{ tile: Tile | null } | null>(null)
+  const icons = useSiteIcons((settings?.tiles ?? []).map((t) => t.url))
 
   useEffect(() => {
     void window.bmax.cmd('stats.get').then(setStats)
@@ -144,12 +145,18 @@ export function App() {
               onClick={() => void window.bmax.cmd('page.navigate', { input: tile.url })}
               title={tile.url}
             >
-              <span
-                className="grid place-items-center rounded-full text-lg font-semibold text-white"
-                style={{ width: 48, height: 48, background: `hsl(${hue(tile.title)} 55% 45%)` }}
-              >
-                {tile.title.charAt(0).toUpperCase()}
-              </span>
+              {icons[tile.url] ? (
+                <span className="grid place-items-center rounded-full" style={{ width: 48, height: 48, background: 'var(--field)' }} data-tile-icon>
+                  <img src={icons[tile.url] ?? ''} alt="" width={26} height={26} style={{ borderRadius: 5 }} draggable={false} />
+                </span>
+              ) : (
+                <span
+                  className="grid place-items-center rounded-full text-lg font-semibold text-white"
+                  style={{ width: 48, height: 48, background: `hsl(${hue(tile.title)} 55% 45%)` }}
+                >
+                  {tile.title.charAt(0).toUpperCase()}
+                </span>
+              )}
               <span className="w-full truncate text-center text-xs">{tile.title}</span>
             </button>
             <div className="absolute right-1 top-1 hidden gap-1 group-hover:flex">

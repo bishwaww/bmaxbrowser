@@ -28,7 +28,9 @@ export function SuggestView({ data }: { data: { items: SuggestionItem[]; selecte
               pick(item)
             }}
           >
-            <span style={{ color: 'var(--muted)' }}>{item.kind === 'search' ? <IconSearch size={16} /> : <IconGlobe size={16} />}</span>
+            <span className="grid shrink-0 place-items-center" style={{ color: 'var(--muted)', width: 16, height: 16 }}>
+              {item.icon ? <img src={item.icon} alt="" width={16} height={16} /> : item.kind === 'search' ? <IconSearch size={16} /> : <IconGlobe size={16} />}
+            </span>
             <span className="min-w-0 flex-1 truncate" style={{ fontSize: 13 }}>
               {item.text}
             </span>

@@ -7,6 +7,7 @@ import { allowHttp } from '../net/privacy-handlers'
 import { resolveOmnibox } from '@shared/omnibox'
 import { services } from '../services'
 import { EXT_PARTITION } from '../sessions/SessionManager'
+import { siteHost, siteIcon } from '../tabs/favicon'
 import type { Tab } from '../tabs/Tab'
 import type { BmaxWindow } from '../windows/BmaxWindow'
 import type { Handlers } from './router'
@@ -180,6 +181,13 @@ export function createHandlers(): Handlers {
         { label: 'All bookmarks', click: () => window.execute('bookmarks') },
         { label: 'Hide bookmarks bar', click: () => window.execute('toggleBookmarksBar') }
       ]).popup({ window: window.base })
+    },
+    'icons.get': ({ urls }) => {
+      const saved = new Map<string, string>()
+      for (const b of services.bookmarks.list()) if (b.icon) saved.set(siteHost(b.url), b.icon)
+      const out: Record<string, string | null> = {}
+      for (const u of urls) out[u] = siteIcon(u) ?? saved.get(siteHost(u)) ?? null
+      return out
     },
     'bookmarks.import': async (_a, { window }) => {
       const res = await dialog.showOpenDialog(window.base, {

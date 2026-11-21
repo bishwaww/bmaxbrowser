@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { Bookmark, PasswordEntry, VaultStatus } from '@shared/vault'
+import { useSiteIcons } from '../shared-ui/hooks'
 
 const field = { background: 'var(--field)', border: '1px solid var(--border)', userSelect: 'text' as const }
 const primary = { background: 'var(--accent)', color: 'var(--on-accent)' }
@@ -76,6 +77,22 @@ function Unlock({ onDone }: { onDone: () => void }) {
   )
 }
 
+/** The site's icon, or a round letter when BMAX has not seen the site's icon yet. */
+function SiteBadge({ url, icon }: { url: string; icon: string | null | undefined }) {
+  if (icon) return <img src={icon} alt="" width={20} height={20} className="shrink-0" style={{ borderRadius: 4 }} />
+  let letter = '?'
+  try {
+    letter = (new URL(url).hostname.replace(/^www\./, '')[0] ?? '?').toUpperCase()
+  } catch {
+    /* keep ? */
+  }
+  return (
+    <span className="grid shrink-0 place-items-center rounded-full text-xs font-semibold" style={{ width: 20, height: 20, background: 'var(--active)' }} aria-hidden>
+      {letter}
+    </span>
+  )
+}
+
 function Bookmarks({ pendingAdd }: { pendingAdd: { url: string; title: string } | null }) {
   const [items, setItems] = useState<Bookmark[]>([])
   const [q, setQ] = useState('')
@@ -85,6 +102,7 @@ function Bookmarks({ pendingAdd }: { pendingAdd: { url: string; title: string } 
   useEffect(load, [load])
   useEffect(() => window.bmax.onPush((m) => m.type === 'bookmarks' && load()), [load])
   const shown = items.filter((b) => !q || (b.title + ' ' + b.url + ' ' + b.folder).toLowerCase().includes(q.toLowerCase()))
+  const icons = useSiteIcons(items.filter((b) => !b.icon).map((b) => b.url))
   return (
     <>
       {pending && (
@@ -125,6 +143,7 @@ function Bookmarks({ pendingAdd }: { pendingAdd: { url: string; title: string } 
         <ul>
           {shown.map((b) => (
             <li key={b.id} className="group flex items-center gap-3 rounded-md px-2 py-2 hover:bg-[var(--hover)]">
+              <SiteBadge url={b.url} icon={b.icon ?? icons[b.url]} />
               <button className="min-w-0 flex-1 text-left" onClick={() => void window.bmax.cmd('page.navigate', { input: b.url })}>
                 <div className="truncate">{b.title}</div>
                 <div className="truncate text-xs" style={{ color: 'var(--muted)' }}>

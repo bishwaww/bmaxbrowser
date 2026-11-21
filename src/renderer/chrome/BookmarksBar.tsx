@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { MouseEvent } from 'react'
 import type { Bookmark } from '@shared/vault'
+import { useSiteIcons } from '../shared-ui/hooks'
 
 function hostOf(url: string): string {
   try {
@@ -11,8 +12,8 @@ function hostOf(url: string): string {
 }
 
 /** Small round letter badge when the bookmark has no saved site icon. */
-function Badge({ b }: { b: Bookmark }) {
-  if (b.icon) return <img src={b.icon} alt="" width={16} height={16} className="shrink-0" style={{ borderRadius: 3 }} />
+function Badge({ b, icon }: { b: Bookmark; icon: string | null | undefined }) {
+  if (icon) return <img src={icon} alt="" width={16} height={16} className="shrink-0" style={{ borderRadius: 3 }} draggable={false} />
   const letter = (hostOf(b.url)[0] ?? '?').toUpperCase()
   return (
     <span
@@ -35,6 +36,8 @@ export function BookmarksBar() {
       if (m.type === 'bookmarks') load()
     })
   }, [])
+
+  const icons = useSiteIcons(items.filter((b) => !b.icon).map((b) => b.url))
 
   const open = (e: MouseEvent, b: Bookmark) => {
     const newTab = e.button === 1 || e.ctrlKey || e.metaKey
@@ -70,7 +73,7 @@ export function BookmarksBar() {
               void window.bmax.cmd('bookmarks.contextMenu', { id: b.id })
             }}
           >
-            <Badge b={b} />
+            <Badge b={b} icon={b.icon ?? icons[b.url]} />
             <span className="truncate">{b.title || hostOf(b.url)}</span>
           </button>
         ))}

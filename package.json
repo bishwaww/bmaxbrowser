@@ -1,7 +1,7 @@
 {
   "name": "bmax-browser",
   "productName": "BMAX Browser",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Privacy-first desktop web browser",
   "private": true,
   "main": "./out/main/index.js",
@@ -19,6 +19,7 @@
     "test:e2e": "npm run build && playwright test",
     "icons": "electron scripts/make-icons.cjs",
     "verify-binaries": "node scripts/verify-binaries.mjs",
+    "fetch-binaries": "node scripts/fetch-binaries.mjs",
     "dist:dir": "npm run build && electron-builder --dir",
     "dist:win": "npm run build && electron-builder --win",
     "dist:mac": "npm run build && electron-builder --mac",

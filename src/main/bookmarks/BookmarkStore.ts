@@ -6,9 +6,10 @@ import { z } from 'zod'
 import type { ImportedBookmark } from '@shared/bookmarks-import'
 import type { Bookmark } from '@shared/vault'
 import { readJson, writeJsonAtomic } from '../settings/JsonStore'
+import { siteHost } from '../tabs/favicon'
 
 const MAX = 5000
-const MAX_ICON = 24_000
+const MAX_ICON = 100_000
 
 const schema = z
   .array(
@@ -78,6 +79,19 @@ export class BookmarkStore {
     const before = this.items.length
     this.items = this.items.filter((b) => b.url !== url)
     if (this.items.length !== before) this.save()
+  }
+
+  /** A tab of this site showed its icon: give it to the site's bookmarks that have none yet (e.g. imported ones). */
+  setIcon(pageUrl: string, icon: string): void {
+    const host = siteHost(pageUrl)
+    if (!host || !icon.startsWith('data:image/') || icon.length > MAX_ICON) return
+    let changed = false
+    for (const b of this.items) {
+      if (b.icon || siteHost(b.url) !== host) continue
+      b.icon = icon
+      changed = true
+    }
+    if (changed) this.save()
   }
 
   get(id: string): Bookmark | undefined {
