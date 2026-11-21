@@ -130,3 +130,13 @@ export interface ShieldsListsInfo {
   engine: EngineStatus
   updating: boolean
 }
+
+/**
+ * Scriptlets from the filter lists carry their helper functions and classes as top-level declarations. Run as they are,
+ * every scriptlet lands in the page's global scope: the second one that declares the same helper class is a SyntaxError
+ * and the helpers overwrite each other and the page's own globals (this left YouTube stuck on its grey placeholders).
+ * Give each scriptlet a function scope of its own, and keep one scriptlet's failure away from the page.
+ */
+export function isolateScriptlet(script: string): string {
+  return `(function () {\ntry {\n${script}\n} catch (e) {}\n})();`
+}

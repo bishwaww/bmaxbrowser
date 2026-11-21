@@ -1,4 +1,6 @@
+import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
+import { isolateScriptlet } from '../../src/shared/shields'
 import { summarizeManifest } from '../../src/shared/extensions'
 import { readingMinutes } from '../../src/shared/reader'
 import { settingsSchema, DEFAULT_SETTINGS } from '../../src/shared/settings'
@@ -83,6 +85,31 @@ describe('reader mode data', () => {
   it('estimates reading time', () => {
     expect(readingMinutes(0)).toBe(1)
     expect(readingMinutes(1000)).toBe(5)
+  })
+})
+
+describe('Shields scriptlets', () => {
+  // Shape of the scriptlets in the uBlock lists: shared helpers as top-level declarations, then the call.
+  const a = 'class JSONPath { static id() { return 1 } }\nfunction helper() { return "a" }\nglobalThis.ranA = helper() + JSONPath.id()'
+  const b = 'class JSONPath { static id() { return 2 } }\nfunction helper() { return "b" }\nglobalThis.ranB = helper() + JSONPath.id()'
+  const page = 'var helper = "the page\'s own global"'
+  it('run as they are, the second scriptlet that shares a helper class cannot even be parsed', () => {
+    const ctx: Record<string, unknown> = {}
+    runInNewContext(a, ctx)
+    expect(() => runInNewContext(b, ctx)).toThrow(/JSONPath.*already been declared/)
+  })
+  it('isolated, every scriptlet runs and none of them touches the page globals', () => {
+    const ctx: Record<string, unknown> = {}
+    runInNewContext(page, ctx)
+    runInNewContext(isolateScriptlet(a), ctx)
+    runInNewContext(isolateScriptlet(b), ctx)
+    expect(ctx['ranA']).toBe('a1')
+    expect(ctx['ranB']).toBe('b2')
+    expect(ctx['helper']).toBe("the page's own global")
+    expect(ctx['JSONPath']).toBeUndefined()
+  })
+  it('a scriptlet that throws does not break the page', () => {
+    expect(() => runInNewContext(isolateScriptlet('decodeURIComponent("%E0%A4%A")'), {})).not.toThrow()
   })
 })
 

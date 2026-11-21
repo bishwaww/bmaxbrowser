@@ -3,7 +3,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { createHash } from 'node:crypto'
 import { siteOf } from '@shared/privacy'
 import type { Settings } from '@shared/settings'
-import { LIST_CATALOG, listEnabled } from '@shared/shields'
+import { isolateScriptlet, LIST_CATALOG, listEnabled } from '@shared/shields'
 import type {
   BlockedItem,
   BlockedNavigation,
@@ -386,7 +386,7 @@ export class ShieldsManager {
       void event.sender.insertCSS(r.styles, { cssOrigin: 'user' }).catch(() => undefined)
     }
     for (const script of r.scripts) {
-      void frame?.executeJavaScript(script, true).catch(() => undefined)
+      void frame?.executeJavaScript(isolateScriptlet(script), true).catch(() => undefined)
     }
   }
 
